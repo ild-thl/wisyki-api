@@ -25,7 +25,7 @@ def predict_complevel():
 
 
 @app.route("/predictTopic", methods=['POST'])
-def predict_complevel():
+def predict_topic():
     data = request.get_json()
     title = data["title"]
     description = data["description"]
@@ -35,14 +35,14 @@ def predict_complevel():
     return jsonify(prediction)
 
 @app.route("/trainCompLevel", methods=['POST'])
-def train():
+def train_complevel():
     data = request.get_json()
     trainer = comp_level_model_trainer()
     training_stats = trainer.train(data)
     return jsonify(training_stats)
 
 @app.route("/getCompLevelReport", methods=['GET'])
-def report():
+def report_complevel():
     trainer = comp_level_model_trainer()
     report = trainer.getReport()
     return jsonify(report)
