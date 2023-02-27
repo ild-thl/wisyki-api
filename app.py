@@ -51,10 +51,9 @@ def report_complevel():
 @app.route("/extractKeywords", methods=['POST'])
 def extract_keywords():
     data = request.get_json()
-    title = data["title"]
-    description = data["description"]
+    text = data["text"]
     model = keyword_extractor()
-    keywords = model.extract_keywords(title, description)
+    keywords = model.extract_keywords(text)
     
     return jsonify(keywords)
 

@@ -1,12 +1,14 @@
 from keybert import KeyBERT
 from nltk.corpus import stopwords
+from flair.embeddings import TransformerDocumentEmbeddings
+
 
 class keyword_extractor():
     def __init__(self):
-        self.model = KeyBERT()
-  
-    def extract_keywords(self, title, description):
-        text = title + " \n\n " + description
-        top_keywords = self.model.extract_keywords(text, keyphrase_ngram_range=(1, 1), stop_words=stopwords.words('german'), top_n=3)
-        top_keyphrases = self.model.extract_keywords(text, keyphrase_ngram_range=(1, 4), stop_words=stopwords.words('german'), top_n=1)
-        return top_keyphrases + top_keywords
+        germancased = TransformerDocumentEmbeddings('bert-base-german-cased')
+        self.model = KeyBERT(model=germancased)
+
+    def extract_keywords(self, text):
+        top_keyphrases = self.model.extract_keywords(text, keyphrase_ngram_range=(
+            1, 4), stop_words=stopwords.words('german'), top_n=3)
+        return top_keyphrases
