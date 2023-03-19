@@ -4,6 +4,7 @@ from comp_level_predictor import comp_level_predictor
 from topic_predictor import topic_predictor
 from comp_level_model_trainer import comp_level_model_trainer
 from keyword_extractor import keyword_extractor
+from esco_predictor import esco_predictor
 
 app = Flask(__name__)
 CORS(app)
@@ -19,6 +20,7 @@ def predict_complevel():
     data = request.get_json()
     title = data["title"]
     description = data["description"]
+    complevelmodel = comp_level_predictor()
     prediction = complevelmodel.predict(title, description)
 
     return jsonify(prediction)
@@ -53,16 +55,47 @@ def report_complevel():
 @app.route("/extractKeywords", methods=['POST'])
 def extract_keywords():
     data = request.get_json()
-    title = data["title"]
+    seed = data["title"]
     text = data["text"]
-    keywords = bertmodel.extract_keywords(title, text)
+    bertmodel = keyword_extractor()
+    keywords = bertmodel.extract_keywords(text, seed)
 
     return jsonify(keywords)
 
 
-# Preload bertmodel.
-bertmodel = keyword_extractor()
-complevelmodel = comp_level_predictor()
+@app.route("/predictESCO", methods=['POST'])
+def predict_skills():
+    data = request.get_json()
+
+    searchterms = []
+    if 'searchterms' in data:
+        searchterms = data["searchterms"]
+
+    doc = None
+    if 'doc' in data:
+        doc = data["doc"]
+
+    min_relevancy = None
+    if 'min_relevancy' in data:
+        min_relevancy = float(data["min_relevancy"])
+
+    exclude_irrelevant = True
+    if 'exclude_irrelevant' in data:
+        exclude_irrelevant = bool(data["exclude_irrelevant"])
+
+    extract_keywords = False
+    if 'extract_keywords' in data:
+        extract_keywords = bool(data["extract_keywords"])
+
+    filterconcepts = []
+    if 'filterconcepts' in data:
+        filterconcepts = data["filterconcepts"]
+
+    predictor = esco_predictor()
+    skills = predictor.predict(searchterms, extract_keywords,
+                               filterconcepts, min_relevancy, exclude_irrelevant, doc)
+
+    return jsonify(skills)
 
 
 if __name__ == '__main__':
