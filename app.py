@@ -91,9 +91,13 @@ def predict_skills():
     if 'filterconcepts' in data:
         filterconcepts = data["filterconcepts"]
 
+    schemes = "http://data.europa.eu/esco/concept-scheme/member-skills, http://data.europa.eu/esco/concept-scheme/skills-hierarchy"
+    if 'schemes' in data:
+        schemes = data["schemes"]
+
     predictor = esco_predictor()
     skills = predictor.predict(searchterms, extract_keywords,
-                               filterconcepts, min_relevancy, exclude_irrelevant, doc)
+                               schemes, filterconcepts, min_relevancy, exclude_irrelevant, doc)
 
     return jsonify(skills)
 

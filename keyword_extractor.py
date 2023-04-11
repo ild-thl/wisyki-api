@@ -3,8 +3,10 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 # import nltk
 # nltk.download('punkt')
-stop_words = ['telelearning', 'optional', 'zielgruppe', 'lerninhalte', 'persönliches', 'individuell', 'praktikum', 'inhalte', 'unterschiedliche', 'kurse', 'einführung',
-              'zunächst', 'zeigt', 'bescheinigung', 'teilnahmebescheinigung', 'lehrveranstaltung', 'kursinhalte', 'gibt', 'hwk', 'abschluss', 'teil', 'training', 'prüfungsvorbereitung']
+stop_words = ['telelearning', 'optional', 'zielgruppe', 'lerninhalte', 'persönliches', 'individuell', 'praktikum', 'inhalte', 'unterschiedliche', 'kurse', 'kurs', 'einführung',
+              'zunächst', 'zeigt', 'bescheinigung', 'teilnahmebescheinigung', 'lehrveranstaltung', 'veranstaltung', 'kursinhalte', 'gibt', 'hwk', 'abschluss', 'teil', 'training',
+              'prüfungsvorbereitung', 'ausbildung', 'umschulung', 'bildung', 'schulung', 'konstenlos', 'ideal', '##en', '##ung', 'en', 'ung', 'seminar', 'online', 'zertifikat', 'tätigkeit',
+              'grundlagen', 'basis']
 stop_words.extend(stopwords.words('german'))
 
 
@@ -19,6 +21,7 @@ class keyword_extractor():
             seed_keywords = word_tokenize(seed, language='german')
             text = seed + ' \n\n ' + text
 
+        text = text.lower()
         top_keyphrases = self.model.extract_keywords(text, keyphrase_ngram_range=(
             1, 3), stop_words=stop_words, top_n=3, seed_keywords=seed_keywords)
         top_keywords = self.model.extract_keywords(text, keyphrase_ngram_range=(
