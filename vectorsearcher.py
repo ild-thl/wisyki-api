@@ -1,9 +1,11 @@
 from langchain.vectorstores import Chroma
+import os
 
 
 class vectorsearcher():
     def __init__(self, embedding):
-        persist_directory = 'data/esco_vectorstore'
+        dir = os.path.dirname(__file__)
+        persist_directory = dir + '/data/esco_vectorstore'
         self.vectordb = Chroma(persist_directory=persist_directory, embedding_function=embedding)
 
     def predict(self, doc, top_k):
