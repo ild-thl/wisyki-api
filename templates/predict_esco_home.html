@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+  <head>
+    <title>WISY@KI ESCO-Automat Test</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <div class="container">
+      <h1>WISY@KI ESCO-Automat Test</h1>
+      <form action="{{ url_for('predictESCOWeb') }}" method="post">
+        <label for="input_text">Kursbeschreibung:</label>
+        <textarea id="input_text" name="input_text" rows="5" cols="40"></textarea>
+        <button type="submit">Submit</button>
+      </form>
+      {% if result %}
+        <div class="result-container">
+            <h1>Kompetenzvorschläge</h1>
+            <ul class="result-list">
+            {% for item in result %}
+                <li>
+                <a href="{{ item.uri }}">{{ item.title }}</a>
+                <p>{{ item.className }} - Score: {{ item.score }}</p>
+                </li>
+            {% endfor %}
+            </ul>
+        </div>
+      {% endif %}
+    </div>
+  </body>
+</html>

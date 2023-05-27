@@ -1,13 +1,27 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
 from comp_level_predictor import comp_level_predictor
 from topic_predictor import topic_predictor
 from comp_level_model_trainer import comp_level_model_trainer
 from keyword_extractor import keyword_extractor
 from esco_predictor import esco_predictor
+from vectorsearcher import vectorsearcher
+
 
 app = Flask(__name__)
 CORS(app)
+
+
+@app.before_first_request
+def load_instructor():
+    global instructor
+    instructor = esco_predictor()
+
+
+@app.before_first_request
+def load_escosearcher():
+    global escosearcher
+    escosearcher = vectorsearcher()
 
 
 @app.route("/", methods=['GET'])
@@ -63,11 +77,42 @@ def extract_keywords():
     return jsonify(keywords)
 
 
+@app.route('/escoAutomat', methods=['GET'])
+def home():
+    return render_template('predict_esco_home.html')
+
+
+@app.route('/predictESCOWeb', methods=['POST'])
+def predictESCOWeb():
+    doc = request.form['input_text']
+
+    skills = escosearcher.predict(doc, 20)
+
+    return render_template('predict_esco_home.html', result=skills['results'])
+
+
+@app.route("/vectorsearch", methods=['POST'])
+def vectorsearch():
+    data = request.get_json()
+
+    doc = None
+    if 'doc' in data:
+        doc = data["doc"]
+
+    top_k = 20
+    if 'top_k' in data:
+        top_k = int(data["top_k"])
+
+    skills = escosearcher.predict(doc, top_k)
+
+    return jsonify(skills)
+
+
 @app.route("/predictESCO", methods=['POST'])
 def predict_skills():
     data = request.get_json()
 
-    searchterms = []
+    searchterms = {}
     if 'searchterms' in data:
         searchterms = data["searchterms"]
 
@@ -95,8 +140,7 @@ def predict_skills():
     if 'schemes' in data:
         schemes = data["schemes"]
 
-    predictor = esco_predictor()
-    skills = predictor.predict(searchterms, extract_keywords,
+    skills = instructor.predict(searchterms, extract_keywords,
                                schemes, filterconcepts, min_relevancy, exclude_irrelevant, doc)
 
     return jsonify(skills)

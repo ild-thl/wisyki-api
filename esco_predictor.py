@@ -2,28 +2,13 @@ from keyword_extractor import keyword_extractor
 import requests
 import json
 import re
-import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from transformers import BertTokenizer
-from nltk.tokenize import word_tokenize
-from nltk.stem import WordNetLemmatizer
-from nltk.corpus import stopwords
-import nltk
-nltk.download('wordnet')
-nltk.download('omw-1.4')
-nltk.download('punkt')
-stop_words = ['telelearning', 'optional', 'zielgruppe', 'lerninhalte', 'persönliches', 'individuell', 'praktikum', 'inhalte', 'unterschiedliche', 'kurse', 'kurs', 'einführung',
-              'zunächst', 'zeigt', 'bescheinigung', 'teilnahmebescheinigung', 'lehrveranstaltung', 'veranstaltung', 'kursinhalte', 'gibt', 'hwk', 'abschluss', 'teil', 'training',
-              'prüfungsvorbereitung', 'ausbildung', 'umschulung', 'bildung', 'schulung', 'konstenlos', 'ideal', '##en', '##ung', 'en', 'ung', 'seminar', 'online', 'zertifikat', 'tätigkeit',
-              'grundlagen', 'basis']
-stop_words.extend(stopwords.words('german'))
+from sklearn.metrics.pairwise import cosine_similarity
+from InstructorEmbedding import INSTRUCTOR
 
 
 class esco_predictor():
     def __init__(self):
-        self.tokenizer = BertTokenizer.from_pretrained(
-            'bert-base-german-cased')
-        pass
+        self.model = INSTRUCTOR('hkunlp/instructor-large')
 
     def predict(self, searchterms, extract_keywords, schemes, filterconcepts,
                 min_relevancy, exclude_irrelevant, doc=None):
@@ -103,7 +88,7 @@ class esco_predictor():
                         continue
 
                 if result['className'] == 'Concept':
-                    if not re.match(r'.*esco/(skill/S\d\.\d\.\d)|(isced-f/\d{4})', result['uri']):
+                    if not re.match(r'.*esco/(skill/S\d+\.\d+\.\d+)|(isced-f/\d{4})', result['uri']):
                         continue
 
                 skills.append(skill)
@@ -177,70 +162,23 @@ class esco_predictor():
 
         return skills
 
-    # Define a custom tokenizer that uses lemmatization to count synonyms and different versions of the same words as one and the same token and splits composits into subwords.
-    def lemma_tokenizer(self, text):
-        # Replace hyphens with spaces.
-        text = re.sub('[^a-zA-Z0-9\n\.]', ' ', text)
-        # Get full word tokens.
-        tokens = word_tokenize(text, 'german')
-        # Filter out german stopwords and tokens with less than 2 alphabetic characters.
-        lemmatizer = WordNetLemmatizer()
-        filtered_tokens = [lemmatizer.lemmatize(token.lower()) for token in tokens if token.isalpha()
-                           and token.lower() not in stop_words]
-        # Define a custom tokenizer that uses lemmatization to count synonyms and different versions of the same words as one and the same token and splits composits into subwords.
-        return filtered_tokens
-
-    def bert_tokenizer(self, text):
-        # Get subword tokens.
-        subword_tokens = self.tokenizer.tokenize(text)
-        filtered_tokens = [token.lower() for token in subword_tokens if token.lower(
-        ) not in stop_words and bool(re.search(r'[a-zA-Z].*[a-zA-Z]', token))]
-        return filtered_tokens
-
-    def combined_tokenizer(self, text):
-        return self.lemma_tokenizer(text) + self.bert_tokenizer(text)
-
-    # Sum up the scores of every token in a keyphrase.
-    def sum_scores(self, keyphrase, token_scores):
-        lemma_tokens = self.lemma_tokenizer(keyphrase)
-        bert_tokens = self.bert_tokenizer(keyphrase)
-        score = 0.0
-        for token_score in token_scores:
-            if token_score in lemma_tokens or token_score in bert_tokens:
-                score += token_scores[token_score].sum()
-
-        if score > 0 and len(lemma_tokens):
-            score = score / len(lemma_tokens)
-
-        return score
-
     # Sort a set of skills based on their titles semantic similarity to a document.
     def sort_by_relevancy(self, skills, min_relevancy, exclude_irrelevant, doc):
-        # Create relevancy scores for every token in the document.
-        vectorizer = TfidfVectorizer(tokenizer=self.combined_tokenizer)
-        vectors = vectorizer.fit_transform([doc])
-        feature_names = vectorizer.get_feature_names_out()
-        dense = vectors.todense()
-        denselist = dense.tolist()
-
-        df = pd.DataFrame(denselist, columns=feature_names)
-        lowest_token_score = df.sum().min()
-
         results = []
 
-        # Sum up the scores for the tokens of each skill title and sort the results by score.
-        for skill in skills:
-            score = self.sum_scores(skill['title'], df)
-            # If exclude_irrelevant is True do not append skills with a low relevancy score.
-            if exclude_irrelevant:
-                # Exclude skills with a relevancy lower than min_relevancy or if min_relevancy is not set,
-                # exclude all skills by default which scores are lower that half of the lowest known token score.
-                if (min_relevancy and score > min_relevancy) or (not min_relevancy and score >= lowest_token_score / 2.0):
-                    skill['score'] = score
-                    results.append(skill)
-            else:
-                skill['score'] = score
-                results.append(skill)
+        embeddings_a = self.model.encode([doc])
+        embeddings_b = self.model.encode([re.sub(r'\([^)]*\)', '', skill['title']) for skill in skills])
+        similarities = cosine_similarity(embeddings_a,embeddings_b)
 
-        # Sort the results by score.
+        # Add the similarities to the key "score" of every skill.
+        for i in range(len(skills)):
+            if exclude_irrelevant and min_relevancy:
+                if similarities[0][i].item() < min_relevancy:
+                    continue
+
+            skill = skills[i]
+            skill['score'] = similarities[0][i].item()
+            results.append(skill)
+
+        # # Sort the list of strings based on the similarity score.
         return sorted(results, key=lambda x: x['score'], reverse=True)
