@@ -1,15 +1,10 @@
 from langchain.vectorstores import Chroma
-from langchain.embeddings import HuggingFaceInstructEmbeddings
 
 
 class vectorsearcher():
-    def __init__(self):
+    def __init__(self, embedding):
         persist_directory = 'data/esco_vectorstore'
-        embedding = HuggingFaceInstructEmbeddings(
-            model_name="hkunlp/instructor-large",
-            embed_instruction="Represent the document for retrieval: ",
-            query_instruction="Represent the query for retrieval: "
-        )
+        
         self.vectordb = Chroma(persist_directory=persist_directory, embedding_function=embedding)
 
     def predict(self, doc, top_k):

@@ -7,8 +7,8 @@ from InstructorEmbedding import INSTRUCTOR
 
 
 class esco_predictor():
-    def __init__(self):
-        self.model = INSTRUCTOR('hkunlp/instructor-large')
+    def __init__(self, model):
+        self.model = model
 
     def predict(self, searchterms, extract_keywords, schemes, filterconcepts,
                 min_relevancy, exclude_irrelevant, doc=None):
@@ -166,8 +166,8 @@ class esco_predictor():
     def sort_by_relevancy(self, skills, min_relevancy, exclude_irrelevant, doc):
         results = []
 
-        embeddings_a = self.model.encode([doc])
-        embeddings_b = self.model.encode([re.sub(r'\([^)]*\)', '', skill['title']) for skill in skills])
+        embeddings_a = self.model.embed_documents([doc])
+        embeddings_b = self.model.embed_documents([re.sub(r'\([^)]*\)', '', skill['title']) for skill in skills])
         similarities = cosine_similarity(embeddings_a,embeddings_b)
 
         # Add the similarities to the key "score" of every skill.

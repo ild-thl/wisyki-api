@@ -6,6 +6,7 @@ from comp_level_model_trainer import comp_level_model_trainer
 from keyword_extractor import keyword_extractor
 from esco_predictor import esco_predictor
 from vectorsearcher import vectorsearcher
+from langchain.embeddings import HuggingFaceInstructEmbeddings
 
 
 app = Flask(__name__)
@@ -15,13 +16,11 @@ CORS(app)
 @app.before_first_request
 def load_instructor():
     global instructor
-    instructor = esco_predictor()
-
-
-@app.before_first_request
-def load_escosearcher():
-    global escosearcher
-    escosearcher = vectorsearcher()
+    instructor = HuggingFaceInstructEmbeddings(
+        model_name="hkunlp/instructor-large",
+        embed_instruction="Represent the document for retrieval: ",
+        query_instruction="Represent the query for retrieval: "
+    )
 
 
 @app.route("/", methods=['GET'])
@@ -86,6 +85,7 @@ def home():
 def predictESCOWeb():
     doc = request.form['input_text']
 
+    escosearcher = vectorsearcher(instructor)
     skills = escosearcher.predict(doc, 20)
 
     return render_template('predict_esco_home.html', result=skills['results'])
@@ -103,6 +103,7 @@ def vectorsearch():
     if 'top_k' in data:
         top_k = int(data["top_k"])
 
+    escosearcher = vectorsearcher(instructor)
     skills = escosearcher.predict(doc, top_k)
 
     return jsonify(skills)
@@ -140,7 +141,8 @@ def predict_skills():
     if 'schemes' in data:
         schemes = data["schemes"]
 
-    skills = instructor.predict(searchterms, extract_keywords,
+    escopredictor = esco_predictor(instructor)
+    skills = escopredictor.predict(searchterms, extract_keywords,
                                schemes, filterconcepts, min_relevancy, exclude_irrelevant, doc)
 
     return jsonify(skills)
