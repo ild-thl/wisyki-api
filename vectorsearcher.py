@@ -3,8 +3,7 @@ from langchain.vectorstores import Chroma
 
 class vectorsearcher():
     def __init__(self, embedding):
-        persist_directory = 'esco_vectorstore'
-        
+        persist_directory = 'data/esco_vectorstore'
         self.vectordb = Chroma(persist_directory=persist_directory, embedding_function=embedding)
 
     def predict(self, doc, top_k):
