@@ -102,9 +102,14 @@ def vectorsearch():
     top_k = 20
     if 'top_k' in data:
         top_k = int(data["top_k"])
+    
+
+    filterconcepts = []
+    if 'filterconcepts' in data:
+        filterconcepts = data["filterconcepts"]
 
     escosearcher = vectorsearcher(instructor)
-    skills = escosearcher.predict(doc, top_k)
+    skills = escosearcher.predict(doc, top_k, filterconcepts)
 
     return jsonify(skills)
 
