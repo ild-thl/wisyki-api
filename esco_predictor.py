@@ -3,8 +3,6 @@ import requests
 import json
 import re
 from sklearn.metrics.pairwise import cosine_similarity
-from InstructorEmbedding import INSTRUCTOR
-
 
 class esco_predictor():
     def __init__(self, model):
@@ -61,7 +59,8 @@ class esco_predictor():
             'limit': 5,
             'language': 'de',
             'full': False,
-            'isInScheme': schemes
+            'isInScheme': schemes,
+            'selectedVersion': 'v1.1.1'
         }
 
         url = "https://ec.europa.eu/esco/api/search?" + \
@@ -83,6 +82,7 @@ class esco_predictor():
                     for filterconcept in filterconcepts:
                         if filterconcept in result['broaderHierarchyConcept']:
                             is_part_of_concept = True
+                            break
 
                     if not is_part_of_concept:
                         continue
@@ -103,7 +103,8 @@ class esco_predictor():
         # Get skill details from esco api.
         params = {
             'uri': uri,
-            'language': 'de'
+            'language': 'de',
+            'selectedVersion': 'v1.1.1'
         }
         url = "https://ec.europa.eu/esco/api/resource/skill?" + \
             requests.compat.urlencode(params)
@@ -143,7 +144,8 @@ class esco_predictor():
         skills = []
         params = {
             'uri': uri,
-            'language': 'de'
+            'language': 'de',
+            'selectedVersion': 'v1.1.1'
         }
 
         url = "https://ec.europa.eu/esco/api/resource/occupation?" + \
@@ -165,6 +167,8 @@ class esco_predictor():
     # Sort a set of skills based on their titles semantic similarity to a document.
     def sort_by_relevancy(self, skills, min_relevancy, exclude_irrelevant, doc):
         results = []
+        if (len(skills) < 1):
+            return results
 
         embeddings_a = self.model.embed_documents([doc])
         embeddings_b = self.model.embed_documents([re.sub(r'\([^)]*\)', '', skill['title']) for skill in skills])

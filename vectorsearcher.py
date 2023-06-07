@@ -13,30 +13,28 @@ class vectorsearcher():
         results = []
 
         if len(filterconcepts):
-            docs = self.vectordb.similarity_search_with_score(doc, top_k*5)
+            skills = self.vectordb.similarity_search_with_score(doc, top_k*5)
         else:
-            docs = self.vectordb.similarity_search_with_score(doc, top_k)
+            skills = self.vectordb.similarity_search_with_score(doc, top_k)
 
-        for doc in docs:
+        for skill in skills:
             # If filterconcepts are set, exlcude all terms that are not a child of either of the cocepts.
-            if len(filterconcepts) and doc[0].metadata["broaderHierarchyConcepts"]:
-                broaderconcepts = json.loads(doc[0].metadata["broaderHierarchyConcepts"])
+            if len(filterconcepts) and skill[0].metadata["broaderHierarchyConcepts"]:
+                broaderconcepts = json.loads(skill[0].metadata["broaderHierarchyConcepts"])
                 is_part_of_concept = False
-                for filterconcept in filterconcepts:
-                    for broaderconcept in broaderconcepts:
-                        if filterconcept in broaderconcept["uri"]:
-                            is_part_of_concept = True
-                            break
-                
+                for broaderconcept in broaderconcepts:
+                    if broaderconcept["uri"] in filterconcepts:
+                        is_part_of_concept = True
+                        break
+
                 if not is_part_of_concept:
                     continue
-                
+
             results.append({
-                'uri': doc[0].metadata["conceptUri"],
-                'title': doc[0].metadata["preferredLabel"],
-                'className': 'Skill', 'score': str(doc[1]),
-                # 'p': is_part_of_concept,
-                # 'broaderConcepts': doc[0].metadata["broaderHierarchyConcepts"]
+                'uri': skill[0].metadata["conceptUri"],
+                'title': skill[0].metadata["preferredLabel"],
+                'className': 'Skill', 'score': str(skill[1]),
+                # 'broaderConcepts': skill[0].metadata["broaderHierarchyConcepts"]
             })
-        
+
         return {'searchterms': [], 'results': results[:top_k]}
