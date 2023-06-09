@@ -50,7 +50,7 @@ class vectorsearcher():
             })
 
         # Define artificial threshholds for relevancy by identifying where the similarity rating decreases the fastest.
-        if strict > 0:
+        if strict > 0 and len(predictions):
             # Identify the biggest and second biggest gap between the skills with scores higher than 0.2.
             gaps = []
             for i in range(len(predictions) - 1):
