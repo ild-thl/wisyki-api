@@ -184,5 +184,5 @@ class esco_predictor():
             skill['score'] = similarities[0][i].item()
             results.append(skill)
 
-        # # Sort the list of strings based on the similarity score.
+        # Sort the list of strings based on the similarity score.
         return sorted(results, key=lambda x: x['score'], reverse=True)

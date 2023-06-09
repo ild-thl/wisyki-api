@@ -103,13 +103,24 @@ def vectorsearch():
     if 'top_k' in data:
         top_k = int(data["top_k"])
     
-
     filterconcepts = []
     if 'filterconcepts' in data:
         filterconcepts = data["filterconcepts"]
 
+    strict = 0
+    if 'strict' in data:
+        strict = int(data["strict"])
+
+    skills = []
+    if 'skills' in data:
+        skills = data["skills"]
+
+    trusted_score = .2
+    if 'trusted_score' in data:
+        trusted_score = float(data["trusted_score"])
+
     escosearcher = vectorsearcher(instructor)
-    skills = escosearcher.predict(doc, top_k, filterconcepts)
+    skills = escosearcher.predict(doc, top_k, strict, trusted_score, skills, filterconcepts)
 
     return jsonify(skills)
 
