@@ -1,7 +1,8 @@
 Flask==2.2.2
 Flask_Cors==3.0.10
 keybert==0.7.0
+langchain==0.0.206
 nltk==3.7
 pandas==1.4.2
-requests==2.27.1
+requests==2.31.0
 scikit_learn==1.2.2
