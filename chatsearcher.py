@@ -1,21 +1,36 @@
 import json
+from langchain.chat_models  import ChatOpenAI
+from langchain.schema import (
+    HumanMessage,
+    SystemMessage
+)
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-class vectorsearcher():
+class chatsearcher():
     def __init__(self, vectordb, embedding):
         self.vectordb = vectordb
         self.embedding = embedding
+        self.systemmessage = "Du bist ein KI-Assistent der Kursbeschreibungen analysiert, um die wichtigsten Lernziele zu identifizieren. Du antwortest ausschlißlich mit einer Liste von Lernzielen."
     
 
-    def predict(self, doc, top_k, strict, trusted_score, known_skills, filterconcepts):
+    def predict(self, doc, top_k, strict, trusted_score, temperature, openai_api_key, known_skills, filterconcepts):
+        chat = ChatOpenAI(model="gpt-3.5-turbo", temperature=temperature, openai_api_key=openai_api_key)
+        
+        messages = [
+            SystemMessage(content=self.systemmessage),
+            HumanMessage(content=doc)
+        ]
+
+        response = chat(messages).content
+
         predictions = []
 
-        embedded_doc = self.embedding.embed_documents([doc])
+        embedded_doc = self.embedding.embed_documents([response])
 
         known_skill_uris = [skill["uri"] for skill in known_skills]
         known_skill_labels = [skill["title"] for skill in known_skills]
-        doc = " ".join(known_skill_labels) + " " + doc
+        doc = " ".join(known_skill_labels) + " " + response
 
         if len(filterconcepts):
             relevant_skills = self.vectordb.similarity_search_with_score(doc, top_k*5)

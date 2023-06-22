@@ -6,7 +6,11 @@ from comp_level_model_trainer import comp_level_model_trainer
 from keyword_extractor import keyword_extractor
 from esco_predictor import esco_predictor
 from vectorsearcher import vectorsearcher
+from chatsearcher import chatsearcher
 from langchain.embeddings import HuggingFaceInstructEmbeddings
+from chromadb.config import Settings
+from langchain.vectorstores import Chroma
+import os
 
 
 app = Flask(__name__)
@@ -21,6 +25,16 @@ def load_instructor():
         embed_instruction="Represent the document for retrieval: ",
         query_instruction="Represent the query for retrieval: "
     )
+    dir = os.path.dirname(__file__)
+    persist_directory = dir + '/data/esco_vectorstore'
+    chroma_settings = Settings(
+        chroma_db_impl='duckdb+parquet',
+        persist_directory=persist_directory,
+        anonymized_telemetry=False
+    )
+    global vectordb
+    vectordb = Chroma(persist_directory=persist_directory, embedding_function=instructor, client_settings=chroma_settings)
+        
 
 
 @app.route("/", methods=['GET'])
@@ -119,8 +133,50 @@ def vectorsearch():
     if 'trusted_score' in data:
         trusted_score = float(data["trusted_score"])
 
-    escosearcher = vectorsearcher(instructor)
-    skills = escosearcher.predict(doc, top_k, strict, trusted_score, skills, filterconcepts)
+    searchervector = vectorsearcher(vectordb, instructor)
+    skills = searchervector.predict(doc, top_k, strict, trusted_score, skills, filterconcepts)
+
+    return jsonify(skills)
+
+
+@app.route("/chatsearch", methods=['POST'])
+def chatsearch():
+    data = request.get_json()
+
+    doc = None
+    if 'doc' in data:
+        doc = data["doc"]
+
+    top_k = 20
+    if 'top_k' in data:
+        top_k = int(data["top_k"])
+    
+    filterconcepts = []
+    if 'filterconcepts' in data:
+        filterconcepts = data["filterconcepts"]
+
+    strict = 0
+    if 'strict' in data:
+        strict = int(data["strict"])
+
+    skills = []
+    if 'skills' in data:
+        skills = data["skills"]
+
+    trusted_score = .2
+    if 'trusted_score' in data:
+        trusted_score = float(data["trusted_score"])
+
+    temperature = .2
+    if 'temperature' in data:
+        temperature = float(data["temperature"])
+
+    openai_api_key = ""
+    if 'openai_api_key' in data:
+        openai_api_key = data["openai_api_key"]
+
+    searcherchat = chatsearcher(vectordb, instructor)
+    skills = searcherchat.predict(doc, top_k, strict, trusted_score, temperature, openai_api_key, skills, filterconcepts)
 
     return jsonify(skills)
 
