@@ -33,8 +33,9 @@ class comp_level_model_trainer():
         st = time.time()
         # Load data.
         labeled_data = pd.json_normalize(training_data)
-        # labeled_data = pd.read_json(here + '/data/labeledCourses.json', orient='records')
-
+        # Convert all courses with label D to label C
+        labeled_data["label"].replace('D', 'C', inplace=True)
+        
         log += "\nTraining data size: " + str(labeled_data.shape[0])
 
 
