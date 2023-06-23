@@ -51,7 +51,7 @@ class comp_level_model_trainer():
 
         # Create a model based on Multinominal Naive Bayes.
         model = make_pipeline(
-            TfidfVectorizer(max_df=0.25, ngram_range=(1, 2), stop_words=stopwords.words('german')),
+            TfidfVectorizer(max_df=0.125, ngram_range=(1, 3), stop_words=stopwords.words('german')),
             OneVsRestClassifier(MultinomialNB(fit_prior=True, class_prior=None, alpha=0.001))
         )
 
@@ -60,7 +60,7 @@ class comp_level_model_trainer():
 
         # Create labels for the test data.
         prediction = model.predict(X_test)
-        labels = ["A", "B", "C", "D"]
+        labels = ["A", "B", "C"]
         log += "\n\n" + classification_report(y_test, prediction, target_names=labels, zero_division=0)
         report = classification_report(y_test, prediction, target_names=labels, zero_division=0, output_dict=True)
 
