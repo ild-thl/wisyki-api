@@ -11,6 +11,7 @@ from langchain.embeddings import HuggingFaceInstructEmbeddings
 from chromadb.config import Settings
 from langchain.vectorstores import Chroma
 import os
+import openai
 
 
 app = Flask(__name__)
@@ -176,9 +177,16 @@ def chatsearch():
         openai_api_key = data["openai_api_key"]
 
     searcherchat = chatsearcher(vectordb, instructor)
-    skills = searcherchat.predict(doc, top_k, strict, trusted_score, temperature, openai_api_key, skills, filterconcepts)
-
-    return jsonify(skills)
+    
+    try:
+        skills = searcherchat.predict(doc, top_k, strict, trusted_score, temperature, openai_api_key, skills, filterconcepts)
+        return jsonify(skills), 200
+    except openai.error.Timeout:
+        # Catch timeout error and send 502 response.
+        return jsonify({
+                'status': 408,
+                'message': 'OpenAI API Timeout'
+            }), 408
 
 
 @app.route("/predictESCO", methods=['POST'])

@@ -12,11 +12,13 @@ class chatsearcher():
         self.vectordb = vectordb
         self.embedding = embedding
         self.systemmessage = "Du bist ein KI-Assistent der Kursbeschreibungen analysiert, um die wichtigsten Lernziele zu identifizieren. Du antwortest ausschlißlich mit einer Liste von Lernzielen."
+        self.timeout = 20
+
     
 
     def predict(self, doc, top_k, strict, trusted_score, temperature, openai_api_key, known_skills, filterconcepts):
-        chat = ChatOpenAI(model="gpt-3.5-turbo", temperature=temperature, openai_api_key=openai_api_key)
-        
+        chat = ChatOpenAI(model="gpt-3.5-turbo", temperature=temperature, openai_api_key=openai_api_key, request_timeout=self.timeout, max_retries=2)
+
         messages = [
             SystemMessage(content=self.systemmessage),
             HumanMessage(content=doc)
@@ -118,7 +120,7 @@ class chatsearcher():
                 
         results = sorted(results, key=lambda x: x['score'], reverse=False)
 
-        return {'searchterms': [], 'results': results[:top_k]}
+        return {'status': '200', 'searchterms': [], 'results': results[:top_k]}
     
     def predict_for_skill(self, skill, embedded_doc):
         predictions = []
