@@ -7,6 +7,7 @@ from keyword_extractor import keyword_extractor
 from esco_predictor import esco_predictor
 from vectorsearcher import vectorsearcher
 from chatsearcher import chatsearcher
+from semanticsorter import semanticsorter
 from langchain.embeddings import HuggingFaceInstructEmbeddings
 from chromadb.config import Settings
 from langchain.vectorstores import Chroma
@@ -188,6 +189,30 @@ def chatsearch():
                 'message': 'OpenAI API Timeout'
             }), 408
 
+
+@app.route("/semanticsort", methods=['POST'])
+def semanticsort():
+    data = request.get_json()
+    base = ''
+    if 'base' in data and data["base"] != '':
+        base = data["base"]
+    else:
+        return jsonify({
+                'status': 400,
+                'message': 'Missing or empty base value.'
+            }), 400
+
+    documents = []
+    if 'documents' in data and len(data["documents"]) > 0:
+        documents = data["documents"]
+    else:
+        return jsonify({
+                'status': 400,
+                'message': 'Missing or empty documents.'
+            }), 400
+    
+    sorter = semanticsorter(instructor)
+    return jsonify(sorter.sort(base, documents)), 200
 
 @app.route("/predictESCO", methods=['POST'])
 def predict_skills():
