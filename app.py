@@ -214,6 +214,20 @@ def semanticsort():
     sorter = semanticsorter(instructor)
     return jsonify(sorter.sort(base, documents)), 200
 
+@app.route("/getEmbeddings", methods=['POST'])
+def get_embeddings():
+    data = request.get_json()
+    documents = ''
+    if 'docs' in data and len(data["docs"]):
+        documents = data["docs"]
+    else:
+        return jsonify({
+                'status': 400,
+                'message': 'Missing or empty docs value.'
+            }), 400
+    
+    return jsonify(instructor.embed_documents(documents)), 200
+
 @app.route("/predictESCO", methods=['POST'])
 def predict_skills():
     data = request.get_json()
