@@ -16,23 +16,28 @@ class chatsearcher():
 
     
 
-    def predict(self, doc, top_k, strict, trusted_score, temperature, openai_api_key, known_skills, filterconcepts):
-        chat = ChatOpenAI(model="gpt-3.5-turbo", temperature=temperature, openai_api_key=openai_api_key, request_timeout=self.timeout, max_retries=2)
+    def predict(self, doc, top_k, strict, trusted_score, temperature, known_skills, filterconcepts, openai_api_key=False):
+        if openai_api_key:
+            chat = ChatOpenAI(model="gpt-3.5-turbo", temperature=temperature, openai_api_key=openai_api_key, request_timeout=self.timeout, max_retries=2)
 
-        messages = [
-            SystemMessage(content=self.systemmessage),
-            HumanMessage(content=doc)
-        ]
+            messages = [
+                SystemMessage(content=self.systemmessage),
+                HumanMessage(content=doc)
+            ]
 
-        response = chat(messages).content
+            learningoutcomes = chat(messages).content
+            searchterms = learningoutcomes.split('\n')
+        else:
+            learningoutcomes = doc
+            searchterms = []
 
         predictions = []
 
-        embedded_doc = self.embedding.embed_documents([response])
+        embedded_doc = self.embedding.embed_documents([learningoutcomes])
 
         known_skill_uris = [skill["uri"] for skill in known_skills]
         known_skill_labels = [skill["title"] for skill in known_skills]
-        doc = " ".join(known_skill_labels) + " " + response
+        doc = " ".join(known_skill_labels) + " " + learningoutcomes
 
         if len(filterconcepts):
             relevant_skills = self.vectordb.similarity_search_with_score(doc, top_k*5)
@@ -120,7 +125,7 @@ class chatsearcher():
                 
         results = sorted(results, key=lambda x: x['score'], reverse=False)
 
-        return {'status': '200', 'searchterms': [], 'results': results[:top_k]}
+        return {'status': '200', 'searchterms': searchterms, 'results': results[:top_k]}
     
     def predict_for_skill(self, skill, embedded_doc):
         predictions = []

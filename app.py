@@ -180,7 +180,7 @@ def chatsearch():
     searcherchat = chatsearcher(vectordb, instructor)
     
     try:
-        skills = searcherchat.predict(doc, top_k, strict, trusted_score, temperature, openai_api_key, skills, filterconcepts)
+        skills = searcherchat.predict(doc, top_k, strict, trusted_score, temperature, skills, filterconcepts, openai_api_key)
         return jsonify(skills), 200
     except openai.error.Timeout:
         # Catch timeout error and send 502 response.
