@@ -9,4 +9,3 @@ scikit_learn==1.2.2
 InstructorEmbedding==1.0.1
 chromadb==0.3.26
 openai==0.27.8
-typing_extensions==4.5.0
