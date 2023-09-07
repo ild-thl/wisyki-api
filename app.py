@@ -177,10 +177,14 @@ def chatsearch():
     if 'openai_api_key' in data:
         openai_api_key = data["openai_api_key"]
 
+    request_timeout = 20
+    if 'request_timeout' in data:
+        request_timeout = int(data["request_timeout"])
+
     searcherchat = chatsearcher(vectordb, instructor)
     
     try:
-        skills = searcherchat.predict(doc, top_k, strict, trusted_score, temperature, skills, filterconcepts, openai_api_key)
+        skills = searcherchat.predict(doc, top_k, strict, trusted_score, temperature, skills, filterconcepts, openai_api_key, request_timeout)
         return jsonify(skills), 200
     except openai.error.Timeout:
         # Catch timeout error and send 502 response.

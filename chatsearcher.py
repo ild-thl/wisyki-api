@@ -12,13 +12,11 @@ class chatsearcher():
         self.vectordb = vectordb
         self.embedding = embedding
         self.systemmessage = "Du bist ein KI-Assistent der Kursbeschreibungen analysiert, um die wichtigsten Lernziele zu identifizieren. Du antwortest ausschlißlich mit einer Liste von Lernzielen."
-        self.timeout = 20
-
     
 
-    def predict(self, doc, top_k, strict, trusted_score, temperature, known_skills, filterconcepts, openai_api_key=False):
+    def predict(self, doc, top_k, strict, trusted_score, temperature, known_skills, filterconcepts, openai_api_key=False, request_timeout=20):
         if openai_api_key:
-            chat = ChatOpenAI(model="gpt-3.5-turbo", temperature=temperature, openai_api_key=openai_api_key, request_timeout=self.timeout, max_retries=2)
+            chat = ChatOpenAI(model="gpt-3.5-turbo", temperature=temperature, openai_api_key=openai_api_key, request_timeout=request_timeout, max_retries=2)
 
             messages = [
                 SystemMessage(content=self.systemmessage),
@@ -68,7 +66,7 @@ class chatsearcher():
             })
 
         # Define artificial threshholds for relevancy by identifying where the similarity rating decreases the fastest.
-        if strict > 0 and len(predictions):
+        if strict > 0 and len(predictions) > 2:
             # Identify the biggest and second biggest gap between the skills with scores higher than 0.2.
             gaps = []
             for i in range(len(predictions) - 1):
