@@ -14,7 +14,7 @@ from chromadb.config import Settings
 from langchain.vectorstores import Chroma
 import os
 import openai
-from PyPDF2 import PdfReader
+import pdfplumber
 import json
 from recog_ai import recognition_assistant
 from dotenv import load_dotenv
@@ -74,11 +74,10 @@ def find_module():
         if uploaded_file:
             # Check if it's a PDF file
             if uploaded_file.filename.endswith('.pdf'):
-                pdf = PdfReader(uploaded_file)
-                doc = ""
-                for page_num in range(len(pdf.pages)):
-                    page = pdf.pages[page_num]
-                    doc += page.extract_text()
+                with pdfplumber.open(uploaded_file) as pdf:
+                    doc = ""
+                    for page_num in range(max(2, len(pdf.pages))):
+                        doc += pdf.pages[page_num].extract_text()
             # Check if it's a TXT file
             elif uploaded_file.filename.endswith('.txt'):
                 doc = uploaded_file.read().decode('utf-8')
@@ -92,6 +91,9 @@ def find_module():
 
         if not doc:
             return render_template('module_suggestions.html')
+
+        # No more than 10000 characters
+        doc = doc[:10000]
         
         module_suggestions = recognition_ai.getModuleSuggestions(doc)
         external_module_json = recognition_ai.getModulInfo(doc)
