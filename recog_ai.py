@@ -11,7 +11,7 @@ import os
 class recognition_assistant():
     def __init__(self, db):
         self.db = db
-        self.openai_api_key = os.getenv('OPEN_AI_API_KEY')
+        self.openai_api_key = os.getenv('OPENAI_API_KEY')
     
 
     def getModuleSuggestions(self, doc):

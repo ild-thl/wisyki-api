@@ -19,7 +19,8 @@ import json
 from recog_ai import recognition_assistant
 from dotenv import load_dotenv
 
-load_dotenv()
+project_folder = os.path.expanduser('~/wisyki-api')
+load_dotenv(os.path.join(project_folder, '.env'))
 
 
 app = Flask(__name__)
