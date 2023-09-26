@@ -1,0 +1,26 @@
+/* Add CSS styles for the page */
+.form-control {
+  height: unset;
+}
+
+.card-text {
+  max-height: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.markdown h1 {
+  font-size: 1.8em;
+}
+
+.markdown h2 {
+  font-size: 1.5em;
+}
+
+.markdown h3 {
+  font-size: 1.3em;
+}
+
+.markdown h4 {
+  font-size: 1.1em;
+}

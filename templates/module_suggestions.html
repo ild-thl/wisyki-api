@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Modulanrechnung</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="../static/recog-styles.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">Modulanrechnung</h1>
+        <form method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="fileInput">Datei hochladen:</label>
+                <input type="file" class="form-control" id="fileInput" name="file" accept=".txt, .pdf, .xml">
+            </div>
+            <div class="form-group">
+                <label for="textInput">Oder Text eingeben:</label>
+                <textarea class="form-control" id="textInput" name="text" rows="5" placeholder="Enter text here"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Finde ähnliche Module</button>
+        </form>
+
+        <div class="mt-4">
+            <!-- Display parsed module info if available, otherwise display external_module text -->
+            {% if external_module_parsed %}
+                <h2>Informationen zum angegebenen Modul</h2>
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <p class="card-text"><span class="font-weight-bold">Name:</span> {{ external_module_parsed.title }}</p>
+                        <p class="card-text"><span class="font-weight-bold">Credits:</span> {{ external_module_parsed.credits }}</p>
+                        <p class="card-text"><span class="font-weight-bold">Arbeitsaufwand:</span> {{ external_module_parsed.workload }}</p>
+                        <p class="card-text"><span class="font-weight-bold">Niveau:</span> {{ external_module_parsed.level }}</p>
+                        <p class="card-text"><span class="font-weight-bold">Lernziele:</span></p>
+                        <ul>
+                            {% for goal in external_module_parsed.learninggoals %}
+                                <li>{{ goal }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            {% elif external_module %}
+                <h2>Informationen zum angegebenen Modul</h2>
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <p>{{ external_module }}</p>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        {% if module_suggestions %}
+        <!-- Display the module suggestions with visible information -->
+        <h2>Modulvorschläge</h2>
+        <ul class="list-unstyled mt-4">
+            {% for module in module_suggestions %}
+                <li>
+                    <form method="POST" action="/select_module">
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <input type="hidden" name="selected_module" value="{{ module.json }}">
+                                <input type="hidden" name="external_module" value="{{ external_module_json }}">
+                                <h5 class="card-title">{{ module.title }}</h5>
+                                <p class="card-text"><span class="font-weight-bold">Credits:</span> {{ module.credits }} | <span class="font-weight-bold">Dauer:</span> {{ module.workload }}</p>
+                                <p class="card-text"><span class="font-weight-bold">Beschreibung:</span> {{ module.description }}</p>
+                                <p class="card-text"><span class="font-weight-bold">Studiengang:</span> {{ module.program }}</p>
+                                <p class="card-text"><span class="font-weight-bold">Niveau:</span> {{ module.level }}</p>
+                                <button type="submit" class="btn btn-primary">Modul auswählen</button>
+                            </div>
+                        </div>
+                    </form>
+                </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Prüfungsergebnis</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="../static/recog-styles.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">Prüfung auf Anrechenbarkeit</h1>
+        <div class="row">
+            <div class="col-md-6">
+                <h2>Informationen zum externen Modul</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <p class="card-text"><span class="font-weight-bold">Name:</span> {{ external_module_parsed.title }}</p>
+                        <p class="card-text"><span class="font-weight-bold">Credits:</span> {{ external_module_parsed.credits }}</p>
+                        <p class="card-text"><span class="font-weight-bold">Arbeitsaufwand:</span> {{ external_module_parsed.workload }}</p>
+                        <p class="card-text"><span class="font-weight-bold">Niveau:</span> {{ external_module_parsed.level }}</p>
+                        <p class="card-text"><span class="font-weight-bold">Lernziele:</span></p>
+                        <ul>
+                            {% for goal in external_module_parsed.learninggoals %}
+                                <li>{{ goal }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <h2>Informationen zum internen Modul</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <p class="card-text"><span class="font-weight-bold">Name:</span> {{ internal_module_parsed.title }}</p>
+                        <p class="card-text"><span class="font-weight-bold">Credits:</span> {{ internal_module_parsed.credits }}</p>
+                        <p class="card-text"><span class="font-weight-bold">Arbeitsaufwand:</span> {{ internal_module_parsed.workload }}</p>
+                        <p class="card-text"><span class="font-weight-bold">Niveau:</span> {{ internal_module_parsed.level }}</p>
+                        <p class="card-text"><span class="font-weight-bold">Lernziele:</span></p>
+                        <ul>
+                            {% for goal in internal_module_parsed.learninggoals %}
+                                <li>{{ goal }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <h1 class="mt-5 mb-4">Prüfungsergebnis</h1>
+        <!-- Hier sollte das Prüfungsergebnis in HTML-Format gerendert werden -->
+        <div class="card">
+            <div class="card-body markdown">
+                {{ examination_result | safe }}
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+</body>
+</html>
