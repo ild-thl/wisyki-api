@@ -5,10 +5,13 @@ from langchain.schema import (
     SystemMessage
 )
 import markdown
+import os
+
 
 class recognition_assistant():
     def __init__(self, db):
         self.db = db
+        self.openai_api_key = os.getenv('OPEN_AI_API_KEY')
     
 
     def getModuleSuggestions(self, doc):
@@ -44,7 +47,7 @@ class recognition_assistant():
         }
         """
 
-        chat = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.1, openai_api_key="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", request_timeout=40, max_retries=2)
+        chat = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.1, openai_api_key=self.openai_api_key, request_timeout=40, max_retries=2)
 
         messages = [
             SystemMessage(content=systemmessage),
@@ -91,7 +94,7 @@ class recognition_assistant():
             """ + module_internal + """
         """
 
-        chat = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.1, openai_api_key="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", request_timeout=60, max_retries=2)
+        chat = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.1, openai_api_key=self.openai_api_key, request_timeout=60, max_retries=2)
 
         messages = [
             SystemMessage(content=systemmessage),

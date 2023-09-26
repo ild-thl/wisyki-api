@@ -17,6 +17,9 @@ import openai
 from PyPDF2 import PdfReader
 import json
 from recog_ai import recognition_assistant
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 app = Flask(__name__)
