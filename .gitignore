@@ -1,3 +1,6 @@
 __pycache__/*
 *.pickle
+models/
+logs/
 venv
+*notrack*

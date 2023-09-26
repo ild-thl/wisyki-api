@@ -3,6 +3,7 @@ from flask_cors import CORS
 from comp_level_predictor import comp_level_predictor
 from topic_predictor import topic_predictor
 from comp_level_model_trainer import comp_level_model_trainer
+from skillfit_model_trainer import skillfit_model_trainer
 from keyword_extractor import keyword_extractor
 from esco_predictor import esco_predictor
 from vectorsearcher import vectorsearcher
@@ -80,6 +81,19 @@ def report_complevel():
     report = trainer.getReport()
     return jsonify(report)
 
+@app.route("/trainSkillfit", methods=['GET'])
+def train_skillfit():
+    trainer = skillfit_model_trainer()
+    training_stats = trainer.train()
+    return jsonify(training_stats)
+
+
+@app.route("/getSkillfitReport", methods=['GET'])
+def report_skillfit():
+    trainer = skillfit_model_trainer()
+    report = trainer.getReport()
+    return jsonify(report)
+
 
 @app.route("/extractKeywords", methods=['POST'])
 def extract_keywords():
@@ -149,27 +163,31 @@ def chatsearch():
     if 'doc' in data:
         doc = data["doc"]
 
-    top_k = 20
-    if 'top_k' in data:
-        top_k = int(data["top_k"])
+    los = []
+    if 'los' in data:
+        los = data["los"]
+
+    skills = []
+    if 'skills' in data:
+        skills = data["skills"]
     
     filterconcepts = []
     if 'filterconcepts' in data:
         filterconcepts = data["filterconcepts"]
 
+    top_k = 20
+    if 'top_k' in data:
+        top_k = int(data["top_k"])
+
     strict = 0
     if 'strict' in data:
         strict = int(data["strict"])
-
-    skills = []
-    if 'skills' in data:
-        skills = data["skills"]
 
     trusted_score = .2
     if 'trusted_score' in data:
         trusted_score = float(data["trusted_score"])
 
-    temperature = .2
+    temperature = .05
     if 'temperature' in data:
         temperature = float(data["temperature"])
 
@@ -181,10 +199,18 @@ def chatsearch():
     if 'request_timeout' in data:
         request_timeout = int(data["request_timeout"])
 
+    llm_validation = False
+    if 'llm_validation' in data:
+        llm_validation = bool(data["llm_validation"])
+
+    skillfit_validation = False
+    if 'skillfit_validation' in data:
+        skillfit_validation = bool(data["skillfit_validation"])
+
     searcherchat = chatsearcher(vectordb, instructor)
     
     try:
-        skills = searcherchat.predict(doc, top_k, strict, trusted_score, temperature, skills, filterconcepts, openai_api_key, request_timeout)
+        skills = searcherchat.predict(doc, los, skills, filterconcepts, top_k, strict, trusted_score, temperature, openai_api_key, request_timeout, llm_validation, skillfit_validation)
         return jsonify(skills), 200
     except openai.error.Timeout:
         # Catch timeout error and send 502 response.

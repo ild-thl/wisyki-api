@@ -5,22 +5,36 @@ from langchain.schema import (
     SystemMessage
 )
 from sklearn.metrics.pairwise import cosine_similarity
+from skillfit_predictor import skillfit_predictor
+import numpy as np
 
 
 class chatsearcher():
     def __init__(self, vectordb, embedding):
         self.vectordb = vectordb
         self.embedding = embedding
-        self.systemmessage = "Du bist ein KI-Assistent der Kursbeschreibungen analysiert, um die wichtigsten Lernziele zu identifizieren. Du antwortest ausschlißlich mit einer Liste von Lernzielen."
+        self.systemmessage = "Du bist ein KI-Assistent, der auf Kursbeschreibungen spezialisiert ist. Deine Aufgabe ist es, eine Liste von Lernzielen aus einer gegebenen Kursbeschreibung zu extrahieren. Benannte Vorraussetzunge und Zielgruppen sollen ignoriert werden. Gehe dabei Schritt für Schritt vor. Erfasse zuerst die groben Themen, dann identifiziere zu jedem Thema die vermittelten Fähigkeiten."
+        self.skillfit_model = skillfit_predictor()
     
 
-    def predict(self, doc, top_k, strict, trusted_score, temperature, known_skills, filterconcepts, openai_api_key=False, request_timeout=20):
+    def predict(self, doc, los, known_skills, filterconcepts, top_k, strict, trusted_score, temperature, openai_api_key, request_timeout, llm_validation, skillfit_validation):
         if openai_api_key:
             chat = ChatOpenAI(model="gpt-3.5-turbo", temperature=temperature, openai_api_key=openai_api_key, request_timeout=request_timeout, max_retries=2)
+         
+        if len(los) > 0:
+            learningoutcomes = "\n".join(los)
+            searchterms = los
+        elif openai_api_key:
+            print('Extracting los from doc using gpt-3.5-turbo...')
+            
+            humanmessage = "Bitte identifiziere die Lernziele in der folgenden Kursbeschreibung:\n"
+            humanmessage += doc
+            humanmessage += "\nGib eine Liste der Lernziele an, wobei jedes Lernziel in einer neuen Zeile stehen soll. Die Antwort sollte nur die Lernziele selbst enthalten, ohne Einleitungen oder zusätzliche Worte. Nutze kurze und einfache Sprache sowie BLOOM-Verben für Fähigkeiten."
 
+            
             messages = [
                 SystemMessage(content=self.systemmessage),
-                HumanMessage(content=doc)
+                HumanMessage(content=humanmessage)
             ]
 
             learningoutcomes = chat(messages).content
@@ -56,51 +70,58 @@ class chatsearcher():
 
                 if not is_part_of_concept:
                     continue
+            
+            embedded_skill = self.embedding.embed_documents([relevant_skill[0].metadata["preferredLabel"]])
 
             predictions.append({
                 'uri': relevant_skill[0].metadata["conceptUri"],
                 'title': relevant_skill[0].metadata["preferredLabel"],
                 'className': 'Skill',
                 'score': relevant_skill[1],
+                'fit': True,
+                'skill_embedding': embedded_skill[0],
                 # 'broaderConcepts': relevant_skill[0].metadata["broaderHierarchyConcepts"]
             })
+        
 
-        # Define artificial threshholds for relevancy by identifying where the similarity rating decreases the fastest.
-        if strict > 0 and len(predictions) > 2:
-            # Identify the biggest and second biggest gap between the skills with scores higher than 0.2.
-            gaps = []
-            for i in range(len(predictions) - 1):
-                gaps.append(predictions[i + 1]["score"] - predictions[i]["score"])
+        if not llm_validation and not skillfit_validation:
+            # Define artificial threshholds for relevancy by identifying where the similarity rating decreases the fastest. 
+            if strict > 0 and len(predictions) > 2: 
+                # Identify the biggest and second biggest gap between the skills with scores higher than 0.2. 
+                gaps = [] 
+                for i in range(len(predictions) - 1): 
+                    gaps.append(predictions[i + 1]["score"] - predictions[i]["score"]) 
+    
+                # Get the idecies of the two largest gaps. 
+                max_gap_skill_index = gaps.index(max(gaps)) + 1 
+                if strict == 3: 
+                    predictions = predictions[:max_gap_skill_index] 
+                elif strict <= 2: 
+                    max_gap = 0 
+                    max_gap_skill_index_2 = 0 
+                    for i in range(max_gap_skill_index+1, len(predictions) - 1): 
+                        if predictions[i]["score"] < trusted_score: 
+                            continue 
+                        gap = predictions[i + 1]["score"] - predictions[i]["score"] 
+                        if gap > max_gap: 
+                            max_gap = gap 
+                            max_gap_skill_index_2 = i 
+    
+                    if strict == 1: 
+                        max_gap = 0 
+                        max_gap_skill_index_3 = 0 
+                        for i in range(max_gap_skill_index_2+1, len(predictions) - 1): 
+                            if predictions[i]["score"] < trusted_score: 
+                                continue 
+                            gap = predictions[i + 1]["score"] - predictions[i]["score"] 
+                            if gap > max_gap: 
+                                max_gap = gap 
+                                max_gap_skill_index_3 = i 
+    
+                        predictions = predictions[:max_gap_skill_index_3+1] 
+                    else: 
+                        predictions = predictions[:max_gap_skill_index_2+1] 
 
-            # Get the idecies of the two largest gaps.
-            max_gap_skill_index = gaps.index(max(gaps)) + 1
-            if strict == 3:
-                predictions = predictions[:max_gap_skill_index]
-            elif strict <= 2:
-                max_gap = 0
-                max_gap_skill_index_2 = 0
-                for i in range(max_gap_skill_index+1, len(predictions) - 1):
-                    if predictions[i]["score"] < trusted_score:
-                        continue
-                    gap = predictions[i + 1]["score"] - predictions[i]["score"]
-                    if gap > max_gap:
-                        max_gap = gap
-                        max_gap_skill_index_2 = i
-
-                if strict == 1:
-                    max_gap = 0
-                    max_gap_skill_index_3 = 0
-                    for i in range(max_gap_skill_index_2+1, len(predictions) - 1):
-                        if predictions[i]["score"] < trusted_score:
-                            continue
-                        gap = predictions[i + 1]["score"] - predictions[i]["score"]
-                        if gap > max_gap:
-                            max_gap = gap
-                            max_gap_skill_index_3 = i
-
-                    predictions = predictions[:max_gap_skill_index_3+1]
-                else:
-                    predictions = predictions[:max_gap_skill_index_2+1]
 
         # Predictions base on the known skills.
         for known_skill in known_skills:
@@ -120,6 +141,66 @@ class chatsearcher():
             if i not in todelete:
                 results.append(predictions[i])
 
+
+        validated = []
+        if llm_validation and openai_api_key:
+            print('Validating search results using LLM-Chat')
+            skilllabels = []
+            filtered = []
+            for prediction in results:
+                skilllabels.append(prediction['title'])
+
+            systemmessage = "Es soll geprüft werden welche Lernziele von dem folgenden Kurs vermittelt werden. \nKursbeschreibung: " + doc
+            humanmessage = "Welche der folgenden Kompetenzen werden nicht im Kurs vermittelt:"
+            humanmessage += "\n".join(skilllabels)
+            humanmessage += "\nDie Kompetenzen, die nicht zur Kursbeschreibung passen, sind:"
+            messages = [
+                SystemMessage(content=systemmessage),
+                HumanMessage(content=humanmessage)
+            ]
+
+            chatresponse = chat(messages).content
+
+            # from chatresponse get all lines that start with - 
+            lines = chatresponse.split("\n")
+            # Remove "- " from start of every line if exists
+            errors = [line[2:] for line in lines if line.startswith("- ")]
+            
+            for i in range(len(results)):
+                fit = results[i]['title'] in errors
+                results[i]['fit'] = fit
+                
+                if fit:
+                    if strict > 1:
+                        validated.append(results[i])
+                    if strict > 0:
+                        # Score reward for skills that are marked as fitting.
+                        results[i]['score'] -= .06
+        elif skillfit_validation:
+            print('Validating search results using Skillfit-Model')            
+            skillfit = self.skillfit_model.predict(self.prepare_data_for_prediction(embedded_doc, predictions))
+            # Set fit value for results to 1 if skillfit is 1
+            for i in range(len(results)):
+                if i not in range(len(skillfit)):
+                    raise Exception('Index out of bounds')
+
+                fit = bool(skillfit[i][0])
+                results[i]['fit'] = fit
+                
+                if fit:
+                    if strict > 1:
+                        validated.append(results[i])
+                    if strict > 0:
+                        # Score reward for skills that are marked as fitting.
+                        results[i]['score'] -= .06
+            
+        if (llm_validation or skillfit_validation) and strict > 1 and len(validated) > 0:
+            results = validated
+                        
+
+        # Unset skill_embedding param for every object in results
+        for result in results:
+            del result['skill_embedding']
                 
         results = sorted(results, key=lambda x: x['score'], reverse=False)
 
@@ -140,8 +221,31 @@ class chatsearcher():
                 'title': relevant_skill[0].metadata["preferredLabel"],
                 'className': 'Skill',
                 'score': 1-similarities[0][0].item(),
+                'fit': True,
+                'skill_embedding': embedded_skill[0],
                 # 'broaderConcepts': relevant_skill[0].metadata["broaderHierarchyConcepts"]
             })
 
         return predictions
+    
+    def prepare_data_for_prediction(self, embedded_doc, skill_data):
+        # Extract skill embeddings and similarity scores
+        skill_embeddings = [item['skill_embedding'] for item in skill_data]
+        similarity_scores = [item['score'] for item in skill_data]
+
+        # Convert to numpy arrays
+        skill_embeddings = np.array(skill_embeddings)
+        similarity_scores = np.array(similarity_scores)
+
+        # Reshape similarity_scores to be a column vector
+        similarity_scores = similarity_scores.reshape(-1, 1)
+
+        # Repeat the embedded_doc and similarity_scores for each skill_embedding
+        num_skills = len(skill_embeddings)
+        embedded_doc_repeated = np.repeat(embedded_doc, num_skills, axis=0)
+
+        # Flatten the arrays and concatenate them to form the input data
+        prepared_data = np.concatenate((embedded_doc_repeated, skill_embeddings, similarity_scores), axis=1)
+
+        return prepared_data
 
