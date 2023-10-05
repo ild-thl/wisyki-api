@@ -109,12 +109,15 @@ def find_module():
 @app.route('/select_module', methods=['POST'])
 def select_module():
     internal_module_json = request.form['selected_module']
-    external_module_json = request.form['external_module']
-
-    external_module_parsed  = json.loads(external_module_json)
-
-    internal_module_json = recognition_ai.getModulInfo(internal_module_json)
     internal_module_parsed = json.loads(internal_module_json)
+
+    # Get learninggoals
+    internal_module_ai_json = recognition_ai.getModulInfo(internal_module_json)
+    internal_module_ai_parsed = json.loads(internal_module_ai_json)
+    internal_module_parsed["learninggoals"] = internal_module_ai_parsed["learninggoals"]
+
+    external_module_json = request.form['external_module']
+    external_module_parsed  = json.loads(external_module_json)
     
     # Hier rufen wir getExaminationResult() auf und generieren das Prüfungsergebnis.
     examination_result = recognition_ai.getExaminationResult(internal_module_json, external_module_json)
@@ -192,8 +195,8 @@ def home():
 def predictESCOWeb():
     doc = request.form['input_text']
 
-    escosearcher = vectorsearcher(instructor)
-    skills = escosearcher.predict(doc, 20)
+    escosearcher = vectorsearcher(vectordb, instructor)
+    skills = escosearcher.predict(doc, 20, 0, .2, [], [])
 
     return render_template('predict_esco_home.html', result=skills['results'])
 

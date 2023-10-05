@@ -6,6 +6,8 @@ from langchain.schema import (
 )
 import markdown
 import os
+import datetime
+import isodate
 
 
 class recognition_assistant():
@@ -19,16 +21,26 @@ class recognition_assistant():
         
         module_suggestions = []
         for module, score in docs:
+            workload = ""
+            workload_iso = module.metadata['workload']
+            try:
+                duration = isodate.parse_duration(workload_iso)
+                hours = duration.total_seconds() / 3600
+                workload = str(hours) + " Stunden"
+            except:
+                workload = "~" + str(int(module.metadata['credits']) * 30) + " Stunden"
+            
             module_info = {
                 "title": module.metadata['title'],
                 "credits": module.metadata['credits'],
-                "workload": module.metadata['duration'],
+                "workload": workload,
                 "description": module.metadata['description'],
                 "level": module.metadata['level'],
                 "program": module.metadata['program'],
                 "content": module.page_content,
-                "json": json.dumps(module.metadata),
             }
+            module_info["json"] = json.dumps(module_info)
+            
             module_suggestions.append(module_info)
         
         # Return the module suggestions
@@ -40,7 +52,7 @@ class recognition_assistant():
         {
             "title": "",
             "credits": "",
-            "workload": "",
+            "workload": " Stunden",
             "learninggoals": [],
             "assessmenttype": "",
             "level": ""
