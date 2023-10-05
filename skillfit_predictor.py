@@ -6,7 +6,7 @@ class skillfit_predictor():
         self.dir = os.path.dirname(__file__)
         self.optimal_threshold = 0.5
         # Load the saved scaler
-        with open('models/skillfit_scaler.pickle', 'rb') as file:
+        with open(self.dir + '/models/skillfit_scaler.pickle', 'rb') as file:
             self.scaler = pickle.load(file)
   
     def deserialize(self):
