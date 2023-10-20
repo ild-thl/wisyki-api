@@ -1,7 +1,8 @@
 __pycache__/*
-*.pickle
-models/
-logs/
+logs/*
+data/*
+models/*
 venv
 *notrack*
 .env
+.python-version

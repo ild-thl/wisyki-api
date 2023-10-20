@@ -21,7 +21,7 @@ class comp_level_model_trainer():
         pass
 
     def getReport(self):
-        fileObject = open(self.dir + "/data/report.json", "r")
+        fileObject = open(self.dir + "/logs/report.json", "r")
         jsonContent = fileObject.read()
         return json.loads(jsonContent)
     
@@ -65,7 +65,7 @@ class comp_level_model_trainer():
         log += "\n\n" + classification_report(y_test, prediction, target_names=labels, zero_division=0)
         report = classification_report(y_test, prediction, target_names=labels, zero_division=0, output_dict=True)
 
-        pickle.dump(model, open(self.dir + "/data/comp-level_ai-model.pickle", 'wb'))
+        pickle.dump(model, open(self.dir + "/models/comp-level_ai-model.pickle", 'wb'))
 
         # End time.
         et = time.time()
@@ -79,14 +79,14 @@ class comp_level_model_trainer():
         report['modelname'] = 'naive-comp-level'
 
         jsonReport = json.dumps(report)
-        jsonFile = open(self.dir + "/data/report.json", "w")
+        jsonFile = open(self.dir + "/logs/report.json", "w")
         jsonFile.write(jsonReport)
         jsonFile.close()
 
         try:
-            logFile = open(self.dir + "/data/trainModelLog.txt", "a")
+            logFile = open(self.dir + "/logs/trainModelLog.txt", "a")
         except FileNotFoundError:
-            print("The file at " + self.dir + "/data/trainModelLog.txt" + " does not exist.")
+            print("The file at " + self.dir + "/logs/trainModelLog.txt" + " does not exist.")
 
         logFile.write(log + "\n\n\n")
         logFile.close()

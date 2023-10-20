@@ -14,11 +14,11 @@ class recognition_assistant():
     def __init__(self, db):
         self.db = db
         self.openai_api_key = os.getenv('OPENAI_API_KEY')
-    
+
 
     def getModuleSuggestions(self, doc):
         docs = self.db.similarity_search_with_score(doc, 5)
-        
+
         module_suggestions = []
         for module, score in docs:
             workload = ""
@@ -29,7 +29,7 @@ class recognition_assistant():
                 workload = str(hours) + " Stunden"
             except:
                 workload = "~" + str(int(module.metadata['credits']) * 30) + " Stunden"
-            
+
             module_info = {
                 "title": module.metadata['title'],
                 "credits": module.metadata['credits'],
@@ -40,12 +40,12 @@ class recognition_assistant():
                 "content": module.page_content,
             }
             module_info["json"] = json.dumps(module_info)
-            
+
             module_suggestions.append(module_info)
-        
+
         # Return the module suggestions
         return module_suggestions
-    
+
 
     def getModulInfo(self, doc):
         systemmessage = """Analysiere die gegebenen Modulbeschreibungen und fülle anschließend die Lücken in folgendem JSON sinvoll aus. Der Workload sollte in Stunden pro Semester angegeben sein. Das Level bezieht sich auf das Bildungsniveau des Kurses und kann nur "Bachelor" oder "Master" enthalten. Wenn eine passende Information in der gegebenen Modulbeschreibung fehlt, soll das Attribut den Wert null bekommen. Achte darauf dass das Ergebnis valides JSON ist.
@@ -58,6 +58,9 @@ class recognition_assistant():
             "level": ""
         }
         """
+
+        # Restrict length of doc to 4096 minus the length of the system message
+        doc = doc[:4096 - len(systemmessage)]
 
         chat = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.1, openai_api_key=self.openai_api_key, request_timeout=40, max_retries=2)
 

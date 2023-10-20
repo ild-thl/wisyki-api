@@ -7,7 +7,7 @@ from tensorflow.keras.layers import Dense, Dropout
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 from sklearn.utils import shuffle
 from sklearn.model_selection import GridSearchCV
-from tensorflow.keras.wrappers.scikit_learn import KerasClassifier
+from scikeras.wrappers import KerasClassifier
 from sklearn.preprocessing import StandardScaler
 from imblearn.over_sampling import SMOTE
 from tensorflow.keras.callbacks import EarlyStopping
@@ -16,6 +16,7 @@ import time
 import pickle
 import os
 import json
+
 
 class skillfit_model_trainer():
     def __init__(self):
@@ -38,7 +39,7 @@ class skillfit_model_trainer():
         st = time.time()
 
         # Load dataset
-        dataset = pd.read_json(self.dir + "/data/skillfit_dataset_notrack.json")
+        dataset = pd.read_json(self.dir + "/data/preparation/skillfit_dataset.json")
 
         report = {}
         report['dataset_size'] = dataset.shape[0]
@@ -77,10 +78,13 @@ class skillfit_model_trainer():
         scaler = StandardScaler()
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test)
+        
+        # Create the directory if it doesn't exist
+        if not os.path.exists("models/skillfit_ai"):
+            os.makedirs("models/skillfit_ai")
 
         # Save the scaler to a file
-        with open('models/skillfit_scaler.pickle', 'wb') as file:
-            pickle.dump(scaler, file)
+        pickle.dump(scaler, open(self.dir + "/models/skillfit_ai/skillfit_scaler.pickle", "wb"))
         
         # Handle Class Imbalance using SMOTE
         smote = SMOTE(sampling_strategy='auto', random_state=42)
@@ -89,34 +93,36 @@ class skillfit_model_trainer():
         # Define a parameter grid to search
         param_grid = {
             'input_dim': [X_train.shape[1]],
-            'units': [64, 128],
+            'units': [128],
             'activation': ['relu'],
-            'dropout_rate': [0.2, 0.3],
+            'dropout_rate': [0.3],
         }        
         
         # Early Stopping
         early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
 
-        # Create the KerasClassifier for use in GridSearchCV
-        keras_model = KerasClassifier(build_fn=self.create_model, epochs=100, batch_size=128, verbose=0, validation_split=0.2, callbacks=[early_stopping])
+        # Create your model function
+        def create_model(input_dim, units, activation, dropout_rate):
+            model = Sequential()
+            model.add(Dense(units=units, activation=activation, input_dim=input_dim))
+            model.add(Dropout(dropout_rate))
+            model.add(Dense(units=64, activation='relu'))
+            model.add(Dropout(0.2))
+            model.add(Dense(units=1, activation='sigmoid'))
+            model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+            return model
 
-        # Perform grid search
-        grid = GridSearchCV(estimator=keras_model, param_grid=param_grid, cv=3, verbose=2)
-        grid_result = grid.fit(X_train, y_train)
-        
-        # Get the best model from grid search
-        best_model = grid_result.best_estimator_
-        
-        # Save the best performing model.
-        pickle.dump(best_model, open(self.dir + "/models/skillfit_ai-model.pickle", 'wb'))
+        # Create the KerasClassifier
+        kerasClassifier = KerasClassifier(model=create_model, epochs=100, batch_size=128, verbose=0, validation_split=0.2, callbacks=[early_stopping], input_dim=X_train.shape[1], units=64, activation='relu', dropout_rate=0.2)
 
-        # Log the best parameters and results
-        report['best_score'] = grid_result.best_score_
-        report['best_hyperparameter'] = grid_result.best_params_
-        log += "\n\nBest: %f using %s" % (grid_result.best_score_, grid_result.best_params_)
+        # Train the model
+        kerasClassifier.fit(X_train, y_train)
+        
+        # Save model.
+        kerasClassifier.model_.save(self.dir + "/models/skillfit_ai/skillfit_ai-model")
 
         # Get predictions for evaluation dataset.
-        y_pred_probs = best_model.predict(X_test)
+        y_pred_probs = kerasClassifier.predict(X_test)
 
         # Initialize variables for optimal threshold and max F1-score
         optimal_threshold = 0
@@ -177,21 +183,8 @@ class skillfit_model_trainer():
         report['executiontime'] = elapsed_time
         report['modelname'] = 'skillfit-sequential'
 
-        
-        if os.path.exists(self.dir + "/logs/skillfitReport.json"):
-            with open(self.dir + "/logs/skillfitReport.json", "r+") as jsonFile:
-                try:
-                    reports = json.load(jsonFile)
-                except:
-                    reports = []
-                
-                reports.append(report)
-                jsonFile.seek(0)
-                json.dump(reports, jsonFile)
-                jsonFile.truncate()
-        else:
-            with open(self.dir + "/logs/skillfitReport.json", "w") as jsonFile:
-                json.dump([report], jsonFile)
+        with open(self.dir + "/logs/skillfitReport.json", "w") as jsonFile:
+            json.dump(report, jsonFile)
 
         # Check if "/logs/trainSkillfitModelLog.txt exists.
         if os.path.exists(self.dir + "/logs/trainSkillfitModelLog.txt"):
@@ -203,17 +196,3 @@ class skillfit_model_trainer():
         logFile.close()
 
         return report
-    
-
-    # Create your model function
-    def create_model(self, input_dim, units=64, activation='relu', dropout_rate=0.2):
-        model = Sequential()
-        model.add(Dense(units=units, activation=activation, input_dim=input_dim))
-        model.add(Dropout(dropout_rate))
-        model.add(Dense(units=64, activation='relu'))
-        model.add(Dropout(0.2))
-        model.add(Dense(units=1, activation='sigmoid'))
-        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
-        return model
-
-
