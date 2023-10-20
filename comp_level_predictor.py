@@ -7,7 +7,7 @@ class comp_level_predictor():
         pass
   
     def deserialize(self):
-        with open(self.dir + '/data/comp-level_ai-model.pickle', 'rb') as handle:
+        with open(self.dir + '/models/comp-level_ai-model.pickle', 'rb') as handle:
             model = pickle.load(handle)
             return model
   

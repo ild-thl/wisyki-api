@@ -1,8 +1,8 @@
 from keybert import KeyBERT
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
-# import nltk
-# nltk.download('punkt')
+import nltk
+nltk.download('punkt')
 stop_words = ['telelearning', 'optional', 'zielgruppe', 'lerninhalte', 'persönliches', 'individuell', 'praktikum', 'inhalte', 'unterschiedliche', 'kurse', 'kurs', 'einführung',
               'zunächst', 'zeigt', 'bescheinigung', 'teilnahmebescheinigung', 'lehrveranstaltung', 'veranstaltung', 'kursinhalte', 'gibt', 'hwk', 'abschluss', 'teil', 'training',
               'prüfungsvorbereitung', 'ausbildung', 'umschulung', 'bildung', 'schulung', 'konstenlos', 'ideal', '##en', '##ung', 'en', 'ung', 'seminar', 'online', 'zertifikat', 'tätigkeit',
@@ -12,7 +12,6 @@ stop_words.extend(stopwords.words('german'))
 
 class keyword_extractor():
     def __init__(self):
-        # self.model = KeyBERT(model='bert-base-german-cased')
         self.model = KeyBERT()
 
     def extract_keywords(self, text, seed=None):
