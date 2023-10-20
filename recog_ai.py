@@ -25,7 +25,7 @@ class recognition_assistant():
             workload_iso = module.metadata['workload']
             try:
                 duration = isodate.parse_duration(workload_iso)
-                hours = duration.total_seconds() / 3600
+                hours = int(duration.total_seconds() / 3600)
                 workload = str(hours) + " Stunden"
             except:
                 workload = "~" + str(int(module.metadata['credits']) * 30) + " Stunden"
@@ -71,7 +71,7 @@ class recognition_assistant():
 
     def getExaminationResult(self, module_internal, module_external):
         systemmessage = """
-            Ich bin als Assistent*in im Prüfungsausschuss einer Hochschule tätig. Meine Hauptaufgaben umfassen die Beantwortung von Fragen zu Modulen und die Überprüfung, ob ein externes Modul auf ein internes Modul angerechnet werden kann.
+            Ich bin als KI-Assistent*in im Prüfungsamt einer Hochschule tätig. Meine Hauptaufgaben umfassen die Beantwortung von Fragen zu Modulen und die Überprüfung, ob ein externes Modul auf ein internes Modul angerechnet werden kann.
 
             Folgende Kriterien werden bei der Prüfung der Anrechenbarkeit berücksichtigt:
             - Lernziele
@@ -91,12 +91,13 @@ class recognition_assistant():
             - Teilweise Anrechnung, wenn mindestens 50 Prozent der Lernziele übereinstimmen
             - Keine Anrechnung, wenn nur wenige oder keine Lernziele übereinstimmen
 
-            Die Abschnitte und Inhalte meiner Antworten strukturiere ich mit Markdown. Kriterien werden einzeln bewertet. Lernziele müssen nur bei Unterschieden aufgelistet werden. 
+            Die Abschnitte und Inhalte meiner Antworten strukturiere ich mit Markdown. Kriterien werden einzeln bewertet. Lernziele müssen nur bei Unterschieden aufgelistet werden.
             Am Schluss der Prüfung folgt eine prägnante, hervorgehobene Zusammenfassung des Prüfungsergebnisses mit dem Ergebnis: *Vollständige Anrechnung*, *Teilweise Anrechnung* oder *Keine Anrechnung*.
+            Betone an dieser Stelle zusätzlich, dass das Ergebnis auf Basis eines generativen Sprachmodelles generiert wurde und das Ergebnis allein als Empfehlung, nicht aber als gültiges Prüfungsergebnis missverstanden werden sollte.
         """
 
         humanmessage = """
-            ## Externes Modul 
+            ## Externes Modul
 
             """ + module_external + """
 

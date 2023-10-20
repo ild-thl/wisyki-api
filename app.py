@@ -60,35 +60,19 @@ def load_instructor():
         
 
 
-@app.route("/", methods=['GET'])
-def index():
-    return jsonify({"about": "This is an API providing AI-predictions for WISY@KI"})
+def load_moduledb(embedding):
+    return Chroma(
+        client=chromadb.PersistentClient(
+            os.path.dirname(__file__) + "/data/thl_modules_vectorstore"
+        ),
+        embedding_function=embedding,
+        client_settings=Settings(anonymized_telemetry=False),
+    )
 
 
-# Endpunkt für die Startseite
-@app.route('/find_module', methods=['GET', 'POST'])
-def find_module():
-    if request.method == 'POST':
-        # Hier verarbeiten wir den Dateiupload und rufen getModuleSuggestions() auf.
-        doc = None
-        uploaded_file = request.files['file']
-        if uploaded_file:
-            # Check if it's a PDF file
-            if uploaded_file.filename.endswith('.pdf'):
-                with pdfplumber.open(uploaded_file) as pdf:
-                    doc = ""
-                    for page_num in range(max(2, len(pdf.pages))):
-                        doc += pdf.pages[page_num].extract_text()
-            # Check if it's a TXT file
-            elif uploaded_file.filename.endswith('.txt'):
-                doc = uploaded_file.read().decode('utf-8')
-            # Check if it's a xml file
-            elif uploaded_file.filename.endswith('.xml'):
-                doc = uploaded_file.read().decode('utf-8')
-            else:
-                raise Exception('File type not supported')
-        else:
-            doc = request.form['text']
+embedding = load_embedding()
+skilldb = load_skilldb(embedding)
+moduledb = load_moduledb(embedding)
 
         if not doc:
             return render_template('module_suggestions.html')
@@ -104,28 +88,81 @@ def find_module():
         
     return render_template('module_suggestions.html')
 
+# Endpunkt für die Startseite
+@app.route("/find_module", methods=["GET", "POST"])
+def find_module():
+    if request.method == "POST":
+        # Hier verarbeiten wir den Dateiupload und rufen getModuleSuggestions() auf.
+        doc = None
+        uploaded_file = request.files["file"]
+        if uploaded_file:
+            # Check if it's a PDF file
+            if uploaded_file.filename.endswith(".pdf"):
+                with pdfplumber.open(uploaded_file) as pdf:
+                    doc = ""
+                    for page_num in range(max(2, len(pdf.pages))):
+                        doc += pdf.pages[page_num].extract_text()
+            # Check if it's a TXT file
+            elif uploaded_file.filename.endswith(".txt"):
+                doc = uploaded_file.read().decode("utf-8")
+            # Check if it's a xml file
+            elif uploaded_file.filename.endswith(".xml"):
+                doc = uploaded_file.read().decode("utf-8")
+            else:
+                raise Exception("File type not supported")
+        else:
+            doc = request.form["text"]
+
+        if not doc:
+            return render_template("module_suggestions.html")
+
+        # No more than 10000 characters
+        doc = doc[:10000]
+
+        recog_assistant = recognition_assistant(moduledb)
+        module_suggestions = recog_assistant.getModuleSuggestions(doc)
+        external_module_json = recog_assistant.getModulInfo(doc)
+        external_module_parsed = json.loads(external_module_json)
+
+        return render_template(
+            "module_suggestions.html",
+            module_suggestions=module_suggestions,
+            external_module_parsed=external_module_parsed,
+            external_module_json=external_module_json,
+        )
+
+    return render_template("module_suggestions.html")
+
 
 # Endpunkt für die Modulauswahl und Prüfung
-@app.route('/select_module', methods=['POST'])
+@app.route("/select_module", methods=["POST"])
 def select_module():
-    internal_module_json = request.form['selected_module']
+    recog_assistant = recognition_assistant(moduledb)
+    internal_module_json = request.form["selected_module"]
     internal_module_parsed = json.loads(internal_module_json)
 
     # Get learninggoals
-    internal_module_ai_json = recognition_ai.getModulInfo(internal_module_json)
+    internal_module_ai_json = recog_assistant.getModulInfo(internal_module_json)
     internal_module_ai_parsed = json.loads(internal_module_ai_json)
     internal_module_parsed["learninggoals"] = internal_module_ai_parsed["learninggoals"]
 
-    external_module_json = request.form['external_module']
-    external_module_parsed  = json.loads(external_module_json)
-    
+    external_module_json = request.form["external_module"]
+    external_module_parsed = json.loads(external_module_json)
+
     # Hier rufen wir getExaminationResult() auf und generieren das Prüfungsergebnis.
-    examination_result = recognition_ai.getExaminationResult(internal_module_json, external_module_json)
-    
-    return render_template('examination_result.html', internal_module_parsed=internal_module_parsed, external_module_parsed=external_module_parsed, examination_result=examination_result)
+    examination_result = recog_assistant.getExaminationResult(
+        internal_module_json, external_module_json
+    )
+
+    return render_template(
+        "examination_result.html",
+        internal_module_parsed=internal_module_parsed,
+        external_module_parsed=external_module_parsed,
+        examination_result=examination_result,
+    )
 
 
-@app.route("/predictCompLevel", methods=['POST'])
+@app.route("/predictCompLevel", methods=["POST"])
 def predict_complevel():
     data = request.get_json()
     title = data["title"]
