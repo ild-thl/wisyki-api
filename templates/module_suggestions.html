@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Modulanrechnung</title>
+    <title>Modulanerkennung</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
     <link rel="stylesheet" href="../static/recog-styles.css">
 </head>
 <body>
     <div class="container mt-5">
-        <h1 class="mb-4">Modulanrechnung</h1>
+        <h1 class="mb-4">Modulanerkennung</h1>
         <form method="POST" enctype="multipart/form-data">
             <div class="form-group">
                 <label for="fileInput">Datei hochladen:</label>
@@ -25,12 +25,12 @@
             {% if external_module_parsed %}
                 <h2>Informationen zum angegebenen Modul</h2>
                 <div class="card mb-3">
-                    <div class="card-body">
-                        <p class="card-text"><span class="font-weight-bold">Name:</span> {{ external_module_parsed.title }}</p>
-                        <p class="card-text"><span class="font-weight-bold">Credits:</span> {{ external_module_parsed.credits }}</p>
-                        <p class="card-text"><span class="font-weight-bold">Arbeitsaufwand:</span> {{ external_module_parsed.workload }}</p>
-                        <p class="card-text"><span class="font-weight-bold">Niveau:</span> {{ external_module_parsed.level }}</p>
-                        <p class="card-text"><span class="font-weight-bold">Lernziele:</span></p>
+                    <div class="card-body module-description">
+                        <p class="card-text module-name"><span class="font-weight-bold">Name:</span> {{ external_module_parsed.title }}</p>
+                        <p class="card-text module-credits"><span class="font-weight-bold">Credits:</span> {{ external_module_parsed.credits }}</p>
+                        <p class="card-text module-workload"><span class="font-weight-bold">Arbeitsaufwand:</span> {{ external_module_parsed.workload }}</p>
+                        <p class="card-text module-level"><span class="font-weight-bold">Niveau:</span> {{ external_module_parsed.level }}</p>
+                        <p class="card-text module-learninggoals"><span class="font-weight-bold">Lernziele:</span></p>
                         <ul>
                             {% for goal in external_module_parsed.learninggoals %}
                                 <li>{{ goal }}</li>

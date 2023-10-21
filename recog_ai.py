@@ -6,7 +6,6 @@ from langchain.schema import (
 )
 import markdown
 import os
-import datetime
 import isodate
 
 
@@ -74,9 +73,9 @@ class recognition_assistant():
 
     def getExaminationResult(self, module_internal, module_external):
         systemmessage = """
-            Ich bin als KI-Assistent*in im Prüfungsamt einer Hochschule tätig. Meine Hauptaufgaben umfassen die Beantwortung von Fragen zu Modulen und die Überprüfung, ob ein externes Modul auf ein internes Modul angerechnet werden kann.
+            Ich bin als KI-Assistent*in im Prüfungsamt einer Hochschule tätig. Meine Hauptaufgaben umfassen die Beantwortung von Fragen zu Modulen und die Überprüfung, ob ein externes Modul auf ein internes Modul anerkannt werden kann.
 
-            Folgende Kriterien werden bei der Prüfung der Anrechenbarkeit berücksichtigt:
+            Folgende Kriterien werden bei der Prüfung der Anerkennbarkeit berücksichtigt:
             - Lernziele
             - ECTS-Punkte/Credits
             - Arbeitsaufwand
@@ -90,13 +89,13 @@ class recognition_assistant():
             Das Kriterium der Prüfungsform sollte nicht berücksichtigt werden wenn, diese Informatione nicht für beide Module vorliegt und nicht vergleichbar ist.
 
             Es gibt drei mögliche Ergebnisse für die Prüfung:
-            - Vollständige Anrechnung, wenn mindestens 80 Prozent der Lernziele übereinstimmen
-            - Teilweise Anrechnung, wenn mindestens 50 Prozent der Lernziele übereinstimmen
-            - Keine Anrechnung, wenn nur wenige oder keine Lernziele übereinstimmen
+            - Vollständige Anerkennung, wenn mindestens 80 Prozent der Lernziele übereinstimmen
+            - Teilweise Anerkennung, wenn mindestens 50 Prozent der Lernziele übereinstimmen
+            - Keine Anerkennung, wenn nur wenige oder keine Lernziele übereinstimmen
 
             Die Abschnitte und Inhalte meiner Antworten strukturiere ich mit Markdown. Kriterien werden einzeln bewertet. Lernziele müssen nur bei Unterschieden aufgelistet werden.
-            Am Schluss der Prüfung folgt eine prägnante, hervorgehobene Zusammenfassung des Prüfungsergebnisses mit dem Ergebnis: *Vollständige Anrechnung*, *Teilweise Anrechnung* oder *Keine Anrechnung*.
-            Betone an dieser Stelle zusätzlich, dass das Ergebnis auf Basis eines generativen Sprachmodelles generiert wurde und das Ergebnis allein als Empfehlung, nicht aber als gültiges Prüfungsergebnis missverstanden werden sollte.
+            Am Schluss der Prüfung folgt eine prägnante, hervorgehobene Zusammenfassung des Prüfungsergebnisses mit dem Ergebnis: "Es wird auf Basis des Vergelichs der Module  eine *Vollständige Anerkennung*, *Teilweise Anerkennung* oder *Keine Anerkennung* empfohlen.
+            Gib an dieser Stelle zusätzlich den Hinweis, dass das Ergebnis auf Basis eines generativen Sprachmodelles generiert wurde.
         """
 
         humanmessage = """

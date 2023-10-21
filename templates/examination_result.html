@@ -7,44 +7,63 @@
 </head>
 <body>
     <div class="container mt-5">
-        <h1 class="mb-4">Prüfung auf Anrechenbarkeit</h1>
+        <h1 class="mb-4">Prüfung auf Anerkennbarkeit</h1>
         <div class="row">
-            <div class="col-md-6">
-                <h2>Informationen zum externen Modul</h2>
-                <div class="card">
-                    <div class="card-body">
-                        <p class="card-text"><span class="font-weight-bold">Name:</span> {{ external_module_parsed.title }}</p>
-                        <p class="card-text"><span class="font-weight-bold">Credits:</span> {{ external_module_parsed.credits }}</p>
-                        <p class="card-text"><span class="font-weight-bold">Arbeitsaufwand:</span> {{ external_module_parsed.workload }}</p>
-                        <p class="card-text"><span class="font-weight-bold">Niveau:</span> {{ external_module_parsed.level }}</p>
-                        <p class="card-text"><span class="font-weight-bold">Lernziele:</span></p>
-                        <ul>
-                            {% for goal in external_module_parsed.learninggoals %}
-                                <li>{{ goal }}</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <h2>Informationen zum internen Modul</h2>
-                <div class="card">
-                    <div class="card-body">
-                        <p class="card-text"><span class="font-weight-bold">Name:</span> {{ internal_module_parsed.title }}</p>
-                        <p class="card-text"><span class="font-weight-bold">Credits:</span> {{ internal_module_parsed.credits }}</p>
-                        <p class="card-text"><span class="font-weight-bold">Arbeitsaufwand:</span> {{ internal_module_parsed.workload }}</p>
-                        <p class="card-text"><span class="font-weight-bold">Niveau:</span> {{ internal_module_parsed.level }}</p>
-                        <p class="card-text"><span class="font-weight-bold">Lernziele:</span></p>
-                        <ul>
-                            {% for goal in internal_module_parsed.learninggoals %}
-                                <li>{{ goal }}</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
+            <div class="col-md-12">
+                <h2>Modulvergleich</h2>
+                <div class="card-body">
+                    <table class="table module-comparison">
+                        <thead>
+                            <tr>
+                                <th scope="col"></th>
+                                <th scope="col">Externes Modul</th>
+                                <th scope="col">Internes Modul</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th scope="row">Name:</th>
+                                <td>{{ external_module_parsed.title }}</td>
+                                <td>{{ internal_module_parsed.title }}</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Credits:</th>
+                                <td>{{ external_module_parsed.credits }}</td>
+                                <td>{{ internal_module_parsed.credits }}</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Arbeitsaufwand:</th>
+                                <td>{{ external_module_parsed.workload }}</td>
+                                <td>{{ internal_module_parsed.workload }}</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Niveau:</th>
+                                <td>{{ external_module_parsed.level }}</td>
+                                <td>{{ internal_module_parsed.level }}</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Lernziele:</th>
+                                <td>
+                                    <ul>
+                                        {% for goal in external_module_parsed.learninggoals %}
+                                            <li>{{ goal }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </td>
+                                <td>
+                                    <ul>
+                                        {% for goal in internal_module_parsed.learninggoals %}
+                                            <li>{{ goal }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
-        
+
         <h1 class="mt-5 mb-4">Prüfungsergebnis</h1>
         <!-- Hier sollte das Prüfungsergebnis in HTML-Format gerendert werden -->
         <div class="card">
