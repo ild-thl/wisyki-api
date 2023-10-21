@@ -1,19 +1,19 @@
 import json
 from langchain.llms import HuggingFaceTextGenInference
 from sklearn.metrics.pairwise import cosine_similarity
-from skillfit_predictor import skillfit_predictor
 import numpy as np
 import re
 
 
 class chatsearcher:
-    def __init__(self, vectordb, embedding):
-        self.vectordb = vectordb
+    def __init__(self, embedding, skillfit_model):
         self.embedding = embedding
-        self.skillfit_model = skillfit_predictor()
+        self.skillfit_model = skillfit_model
 
     def predict(
         self,
+        skilldb,
+        skill_taxonomy,
         doc,
         los,
         known_skills,
@@ -72,46 +72,65 @@ class chatsearcher:
         known_skill_labels = [skill["title"] for skill in known_skills]
         doc = " ".join(known_skill_labels) + " " + doc
 
+        if skill_taxonomy != "ESCO":
+            relevant_skills = skilldb.similarity_search_with_score(doc, top_k)
         if len(filterconcepts):
-            relevant_skills = self.vectordb.similarity_search_with_score(doc, top_k * 5)
+            relevant_skills = skilldb.similarity_search_with_score(doc, top_k * 5)
         else:
-            relevant_skills = self.vectordb.similarity_search_with_score(doc, top_k * 2)
+            relevant_skills = skilldb.similarity_search_with_score(doc, top_k * 2)
 
         for relevant_skill in relevant_skills:
-            if relevant_skill[0].metadata["conceptUri"] in known_skill_uris:
-                continue
-            # If filterconcepts are set, exlcude all terms that are not a child of either of the cocepts.
-            if (
-                len(filterconcepts)
-                and relevant_skill[0].metadata["broaderHierarchyConcepts"]
-            ):
-                broaderconcepts = json.loads(
-                    relevant_skill[0].metadata["broaderHierarchyConcepts"]
-                )
-                is_part_of_concept = False
-                for broaderconcept in broaderconcepts:
-                    if broaderconcept["uri"] in filterconcepts:
-                        is_part_of_concept = True
-                        break
-
-                if not is_part_of_concept:
+            if skill_taxonomy == "ESCO":
+                if relevant_skill[0].metadata["conceptUri"] in known_skill_uris:
                     continue
+                # If filterconcepts are set, exlcude all terms that are not a child of either of the cocepts.
+                if (
+                    len(filterconcepts)
+                    and relevant_skill[0].metadata["broaderHierarchyConcepts"]
+                ):
+                    broaderconcepts = json.loads(
+                        relevant_skill[0].metadata["broaderHierarchyConcepts"]
+                    )
+                    is_part_of_concept = False
+                    for broaderconcept in broaderconcepts:
+                        if broaderconcept["uri"] in filterconcepts:
+                            is_part_of_concept = True
+                            break
 
-            embedded_skill = self.embedding.embed_documents(
-                [relevant_skill[0].metadata["preferredLabel"]]
-            )
+                    if not is_part_of_concept:
+                        continue
 
-            predictions.append(
-                {
-                    "uri": relevant_skill[0].metadata["conceptUri"],
-                    "title": relevant_skill[0].metadata["preferredLabel"],
-                    "className": "Skill",
-                    "score": relevant_skill[1],
-                    "fit": True,
-                    "skill_embedding": embedded_skill[0],
-                    # 'broaderConcepts': relevant_skill[0].metadata["broaderHierarchyConcepts"]
-                }
-            )
+                embedded_skill = self.embedding.embed_documents(
+                    [relevant_skill[0].metadata["preferredLabel"]]
+                )
+
+                predictions.append(
+                    {
+                        "uri": relevant_skill[0].metadata["conceptUri"],
+                        "title": relevant_skill[0].metadata["preferredLabel"],
+                        "className": "Skill",
+                        "score": relevant_skill[1],
+                        "fit": True,
+                        "skill_embedding": embedded_skill[0],
+                        # 'broaderConcepts': relevant_skill[0].metadata["broaderHierarchyConcepts"]
+                    }
+                )
+            else:
+                embedded_skill = self.embedding.embed_documents(
+                    [relevant_skill[0].page_content]
+                )
+
+                predictions.append(
+                    {
+                        "uri": relevant_skill[0].metadata["id"],
+                        "title": relevant_skill[0].page_content,
+                        "className": "Skill",
+                        "score": relevant_skill[1],
+                        "fit": True,
+                        "skill_embedding": embedded_skill[0],
+                        # 'broaderConcepts': relevant_skill[0].metadata["broaderHierarchyConcepts"]
+                    }
+                )
 
         if not llm_validation and not skillfit_validation:
             # Define artificial threshholds for relevancy by identifying where the similarity rating decreases the fastest.
@@ -151,9 +170,10 @@ class chatsearcher:
                     else:
                         predictions = predictions[: max_gap_skill_index_2 + 1]
 
-        # Predictions base on the known skills.
-        for known_skill in known_skills:
-            predictions += self.predict_for_skill(known_skill, embedded_doc)
+        if skill_taxonomy == "ESCO":
+            # Predictions base on the known skills.
+            for known_skill in known_skills:
+                predictions += self.predict_for_skill(known_skill, embedded_doc)
 
         # Remove knwon skills and duplicates from predictions.
         seen = []
@@ -220,7 +240,7 @@ class chatsearcher:
                     if strict > 0:
                         # Score reward for skills that are marked as fitting.
                         results[i]["score"] -= 0.06
-        elif skillfit_validation:
+        elif skillfit_validation and skill_taxonomy == "ESCO":
             print("Validating search results using Skillfit-Model")
             if use_llm or len(los) > 0:
                 skillfit = self.skillfit_model.predict(
@@ -265,7 +285,7 @@ class chatsearcher:
 
     def predict_for_skill(self, skill, embedded_doc):
         predictions = []
-        relevant_skills = self.vectordb.similarity_search_with_score(skill["title"], 3)
+        relevant_skills = skilldb.similarity_search_with_score(skill["title"], 3)
         for relevant_skill in relevant_skills:
             if relevant_skill[0].metadata["conceptUri"] == skill["uri"]:
                 continue

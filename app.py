@@ -13,6 +13,7 @@ from topic_predictor import topic_predictor
 from topic_model_trainer import topic_model_trainer
 from comp_level_model_trainer import comp_level_model_trainer
 from skillfit_model_trainer import skillfit_model_trainer
+from skillfit_predictor import skillfit_predictor
 from keyword_extractor import keyword_extractor
 from esco_predictor import esco_predictor
 from vectorsearcher import vectorsearcher
@@ -35,7 +36,7 @@ def load_embedding():
     )
 
 
-def load_skilldb(embedding):
+def load_escodb(embedding):
     return Chroma(
         client=chromadb.PersistentClient(
             os.path.dirname(__file__) + "/data/esco_vectorstore"
@@ -45,10 +46,40 @@ def load_skilldb(embedding):
     )
 
 
+def load_dkzdb(embedding):
+    return Chroma(
+        client=chromadb.PersistentClient(
+            os.path.dirname(__file__) + "/data/dkz_competencies_vectorstore"
+        ),
+        embedding_function=embedding,
+        client_settings=Settings(anonymized_telemetry=False),
+    )
+
+
+def load_moduledb(embedding):
+    return Chroma(
+        client=chromadb.PersistentClient(
+            os.path.dirname(__file__) + "/data/thl_modules_vectorstore"
+        ),
+        embedding_function=embedding,
+        client_settings=Settings(anonymized_telemetry=False),
+    )
+
+
+def load_skillfit_model():
+    return skillfit_predictor()
+
+
+def load_topic_model():
+    return topic_predictor()
 
 
 embedding = load_embedding()
-skilldb = load_skilldb(embedding)
+escodb = load_escodb(embedding)
+dkzdb = load_dkzdb(embedding)
+moduledb = load_moduledb(embedding)
+skillfit_model = load_skillfit_model()
+topic_model = load_topic_model()
 
 
 @app.route("/", methods=["GET"])
@@ -85,8 +116,7 @@ def report_topic():
 def predict_topic():
     data = request.get_json()
     doc = data["doc"]
-    model = topic_predictor()
-    prediction = model.predict(doc)
+    prediction = topic_model.predict(doc)
 
     return jsonify(prediction)
 
@@ -140,7 +170,7 @@ def home():
 def predictESCOWeb():
     doc = request.form["input_text"]
 
-    escosearcher = vectorsearcher(skilldb, embedding)
+    escosearcher = vectorsearcher(vectordb, instructor)
     skills = escosearcher.predict(doc, 20, 0, 0.2, [], [])
 
     return render_template("predict_esco_home.html", result=skills["results"])
@@ -174,7 +204,7 @@ def vectorsearch():
     if "trusted_score" in data:
         trusted_score = float(data["trusted_score"])
 
-    searchervector = vectorsearcher(skilldb, embedding)
+    searchervector = vectorsearcher(escodb, embedding)
     skills = searchervector.predict(
         doc, top_k, strict, trusted_score, skills, filterconcepts
     )
@@ -234,9 +264,25 @@ def chatsearch():
     if "skillfit_validation" in data:
         skillfit_validation = bool(data["skillfit_validation"])
 
-    searcherchat = chatsearcher(skilldb, embedding)
+    skilldb = escodb
+    skill_taxonomy = "ESCO"
+    if "skill_taxonomy" in data:
+        skill_taxonomy = data["skill_taxonomy"]
+        if skill_taxonomy == "ESCO":
+            skilldb = escodb
+        elif skill_taxonomy == "DKZ":
+            skilldb = dkzdb
+        else:
+            return (
+                jsonify({"status": 400, "message": "Invalid skill_taxonomy value."}),
+                400,
+            )
+
+    searcherchat = chatsearcher(embedding, skillfit_model)
 
     skills = searcherchat.predict(
+        skilldb,
+        skill_taxonomy,
         doc,
         los,
         skills,
