@@ -18,7 +18,6 @@ from keyword_extractor import keyword_extractor
 from esco_predictor import esco_predictor
 from vectorsearcher import vectorsearcher
 from chatsearcher import chatsearcher
-from recog_ai import recognition_assistant
 
 
 project_folder = os.path.expanduser("~/wisykiapi")
@@ -87,7 +86,7 @@ def index():
     return jsonify({"about": "This is an API providing AI-predictions for WISY@KI"})
 
 
-@app.route("/predictCompLevel", methods=['POST'])
+@app.route("/predictCompLevel", methods=["POST"])
 def predict_complevel():
     data = request.get_json()
     title = data["title"]
