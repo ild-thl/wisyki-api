@@ -20,8 +20,8 @@ from vectorsearcher import vectorsearcher
 from chatsearcher import chatsearcher
 from recog_ai import recognition_assistant
 
-project_folder = os.path.expanduser('~/wisykiapi')
-load_dotenv(os.path.join(project_folder, '.env'))
+project_folder = os.path.expanduser("~/wisykiapi")
+load_dotenv(os.path.join(project_folder, ".env"))
 
 app = Flask(__name__)
 CORS(app)
@@ -80,9 +80,11 @@ moduledb = load_moduledb(embedding)
 skillfit_model = load_skillfit_model()
 topic_model = load_topic_model()
 
+
 @app.route("/", methods=["GET"])
 def index():
     return jsonify({"about": "This is an API providing AI-predictions for WISY@KI"})
+
 
 # Endpunkt für die Startseite
 @app.route("/find_module", methods=["GET", "POST"])
@@ -116,9 +118,23 @@ def find_module():
         doc = doc[:10000]
 
         recog_assistant = recognition_assistant(moduledb)
-        module_suggestions = recog_assistant.getModuleSuggestions(doc)
-        external_module_json = recog_assistant.getModulInfo(doc)
-        external_module_parsed = json.loads(external_module_json)
+
+        external_module_parsed = recog_assistant.getModulInfo(doc)
+        external_module_json = json.dumps(external_module_parsed)
+        translated_doc = ""
+        if external_module_parsed["title"]:
+            translated_doc += "Titel: \n"
+            translated_doc += external_module_parsed["title"]
+            translated_doc += "\n"
+        if external_module_parsed["learninggoals"]:
+            translated_doc += "Lernziele: \n"
+            translated_doc += "\n".join(external_module_parsed["learninggoals"])
+            translated_doc += "\n"
+        if external_module_parsed["level"]:
+            translated_doc += "Niveau: \n"
+            translated_doc += external_module_parsed["level"]
+            translated_doc += "\n"
+        module_suggestions = recog_assistant.getModuleSuggestions(translated_doc)
 
         return render_template(
             "module_suggestions.html",
@@ -138,12 +154,16 @@ def select_module():
     internal_module_parsed = json.loads(internal_module_json)
 
     # Get learninggoals
-    internal_module_ai_json = recog_assistant.getModulInfo(internal_module_json)
-    internal_module_ai_parsed = json.loads(internal_module_ai_json)
+    internal_module_ai_parsed = recog_assistant.getModulInfo(internal_module_json)
     internal_module_parsed["learninggoals"] = internal_module_ai_parsed["learninggoals"]
 
     external_module_json = request.form["external_module"]
     external_module_parsed = json.loads(external_module_json)
+
+    # Original_doc is not needed for processing of the examination result
+    tmp = json.loads(external_module_json)
+    del tmp["original_doc"]
+    external_module_json = json.dumps(tmp)
 
     # Hier rufen wir getExaminationResult() auf und generieren das Prüfungsergebnis.
     examination_result = recog_assistant.getExaminationResult(

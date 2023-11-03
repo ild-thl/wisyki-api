@@ -1,19 +1,15 @@
 import json
-from langchain.chat_models  import ChatOpenAI
-from langchain.schema import (
-    HumanMessage,
-    SystemMessage
-)
+from langchain.chat_models import ChatOpenAI
+from langchain.schema import HumanMessage, SystemMessage
 import markdown
 import os
 import isodate
 
 
-class recognition_assistant():
+class recognition_assistant:
     def __init__(self, db):
         self.db = db
-        self.openai_api_key = os.getenv('OPENAI_API_KEY')
-
+        self.openai_api_key = os.getenv("OPENAI_API_KEY")
 
     def getModuleSuggestions(self, doc):
         docs = self.db.similarity_search_with_score(doc, 5)
@@ -21,21 +17,21 @@ class recognition_assistant():
         module_suggestions = []
         for module, score in docs:
             workload = ""
-            workload_iso = module.metadata['workload']
+            workload_iso = module.metadata["workload"]
             try:
                 duration = isodate.parse_duration(workload_iso)
                 hours = int(duration.total_seconds() / 3600)
                 workload = str(hours) + " Stunden"
             except:
-                workload = "~" + str(int(module.metadata['credits']) * 30) + " Stunden"
+                workload = "~" + str(int(module.metadata["credits"]) * 30) + " Stunden"
 
             module_info = {
-                "title": module.metadata['title'],
-                "credits": module.metadata['credits'],
+                "title": module.metadata["title"],
+                "credits": module.metadata["credits"],
                 "workload": workload,
-                "description": module.metadata['description'],
-                "level": module.metadata['level'],
-                "program": module.metadata['program'],
+                "description": module.metadata["description"],
+                "level": module.metadata["level"],
+                "program": module.metadata["program"],
                 "content": module.page_content,
             }
             module_info["json"] = json.dumps(module_info)
@@ -44,7 +40,6 @@ class recognition_assistant():
 
         # Return the module suggestions
         return module_suggestions
-
 
     def getModulInfo(self, doc):
         systemmessage = """Analysiere die gegebenen Modulbeschreibungen und fülle anschließend die Lücken in folgendem JSON sinvoll aus. Der Workload sollte in Stunden pro Semester angegeben sein. Das Level bezieht sich auf das Bildungsniveau des Kurses und kann nur "Bachelor" oder "Master" enthalten. Wenn eine passende Information in der gegebenen Modulbeschreibung fehlt, soll das Attribut den Wert null bekommen. Achte darauf dass das Ergebnis valides JSON ist.
@@ -59,17 +54,25 @@ class recognition_assistant():
         """
 
         # Restrict length of doc to 4096 minus the length of the system message
-        doc = doc[:4096 - len(systemmessage)]
+        doc = doc[: 4096 - len(systemmessage)]
 
-        chat = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.1, openai_api_key=self.openai_api_key, request_timeout=40, max_retries=2)
+        chat = ChatOpenAI(
+            model="gpt-3.5-turbo",
+            temperature=0.1,
+            openai_api_key=self.openai_api_key,
+            request_timeout=40,
+            max_retries=2,
+        )
 
-        messages = [
-            SystemMessage(content=systemmessage),
-            HumanMessage(content=doc)
-        ]
+        messages = [SystemMessage(content=systemmessage), HumanMessage(content=doc)]
 
-        return chat(messages).content
+        try:
+            module = json.loads(chat(messages).content)
+            module["original_doc"] = doc
+        except:
+            raise Exception("Die Modulbeschreibung konnte nicht richtig verarbeitet werden. Probieren sie es erneut.")
 
+        return module
 
     def getExaminationResult(self, module_internal, module_external):
         systemmessage = """
@@ -98,22 +101,34 @@ class recognition_assistant():
             Gib an dieser Stelle zusätzlich den Hinweis, dass das Ergebnis auf Basis eines generativen Sprachmodelles generiert wurde.
         """
 
-        humanmessage = """
+        humanmessage = (
+            """
             ## Externes Modul
 
-            """ + module_external + """
+            """
+            + module_external
+            + """
 
 
             ## Internes Modul:
 
-            """ + module_internal + """
+            """
+            + module_internal
+            + """
         """
+        )
 
-        chat = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.1, openai_api_key=self.openai_api_key, request_timeout=60, max_retries=2)
+        chat = ChatOpenAI(
+            model="gpt-3.5-turbo",
+            temperature=0,
+            openai_api_key=self.openai_api_key,
+            request_timeout=60,
+            max_retries=2,
+        )
 
         messages = [
             SystemMessage(content=systemmessage),
-            HumanMessage(content=humanmessage)
+            HumanMessage(content=humanmessage),
         ]
 
         return markdown.markdown(chat(messages).content)

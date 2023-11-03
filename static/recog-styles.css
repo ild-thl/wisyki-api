@@ -24,3 +24,26 @@
 .markdown h4 {
   font-size: 1.1em;
 }
+
+.table-striped tbody tr:nth-of-type(odd) {
+  background-color: rgb(246 251 255);
+}
+
+.chevron {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid #000;
+  /* You can change the color here */
+  cursor: pointer;
+  /* Add this if you want to make it clickable */
+  transform: rotate(180deg);
+  margin: 0 4px;
+}
+
+.collapsed .chevron {
+  transform: rotate(0deg);
+  /* Rotate the icon when collapsed */
+}

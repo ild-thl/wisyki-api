@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Prüfungsergebnis</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
     <link rel="stylesheet" href="../static/recog-styles.css">
 </head>
+
 <body>
     <div class="container mt-5">
         <h1 class="mb-4">Prüfung auf Anerkennbarkeit</h1>
@@ -12,7 +14,7 @@
             <div class="col-md-12">
                 <h2>Modulvergleich</h2>
                 <div class="card-body">
-                    <table class="table module-comparison">
+                    <table class="table table-striped module-comparison">
                         <thead>
                             <tr>
                                 <th scope="col"></th>
@@ -22,40 +24,54 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <th scope="row">Name:</th>
+                                <th scope="row">Name</th>
                                 <td>{{ external_module_parsed.title }}</td>
                                 <td>{{ internal_module_parsed.title }}</td>
                             </tr>
                             <tr>
-                                <th scope="row">Credits:</th>
+                                <th scope="row">Credits</th>
                                 <td>{{ external_module_parsed.credits }}</td>
                                 <td>{{ internal_module_parsed.credits }}</td>
                             </tr>
                             <tr>
-                                <th scope="row">Arbeitsaufwand:</th>
+                                <th scope="row">Arbeitsaufwand</th>
                                 <td>{{ external_module_parsed.workload }}</td>
                                 <td>{{ internal_module_parsed.workload }}</td>
                             </tr>
                             <tr>
-                                <th scope="row">Niveau:</th>
+                                <th scope="row">Niveau</th>
                                 <td>{{ external_module_parsed.level }}</td>
                                 <td>{{ internal_module_parsed.level }}</td>
                             </tr>
                             <tr>
-                                <th scope="row">Lernziele:</th>
+                                <th scope="row">Lernziele</th>
                                 <td>
                                     <ul>
                                         {% for goal in external_module_parsed.learninggoals %}
-                                            <li>{{ goal }}</li>
+                                        <li>{{ goal }}</li>
                                         {% endfor %}
                                     </ul>
                                 </td>
                                 <td>
                                     <ul>
                                         {% for goal in internal_module_parsed.learninggoals %}
-                                            <li>{{ goal }}</li>
+                                        <li>{{ goal }}</li>
                                         {% endfor %}
                                     </ul>
+                                </td>
+                            </tr>
+                            <tr data-toggle="collapse" data-target="#ursprungsdokument" aria-expanded="false"
+                                class="collapsed">
+                                <th scope="row">
+                                    <div class="d-flex align-items-center">
+                                        Ursprungsdokument
+                                        <i class="chevron"></i>
+                                    </div>
+                                </th>
+                                <td colspan="2">
+                                    <div id="ursprungsdokument" class="collapse">
+                                        {{ external_module_parsed.original_doc }}
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
@@ -77,4 +93,5 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
 </body>
+
 </html>
