@@ -42,13 +42,9 @@ class chatsearcher:
             max_input_tokens = max_tokens - max_new_tokens
             prompt = prompt[:max_input_tokens]
             llm = HuggingFaceTextGenInference(
-                inference_server_url="https://em-german-13b.llm.mylab.th-luebeck.dev/",
+                inference_server_url="https://em-german-13b.llm.mylab.th-luebeck.dev",
                 max_new_tokens=max_new_tokens,
-                top_k=10,
-                top_p=0.95,
-                typical_p=0.95,
                 temperature=temperature,
-                repetition_penalty=1.03,
             )
             learningoutcomes = llm(prompt)
 
@@ -173,7 +169,7 @@ class chatsearcher:
         if skill_taxonomy == "ESCO":
             # Predictions base on the known skills.
             for known_skill in known_skills:
-                predictions += self.predict_for_skill(known_skill, embedded_doc)
+                predictions += self.predict_for_skill(known_skill, embedded_doc, skilldb)
 
         # Remove knwon skills and duplicates from predictions.
         seen = []
@@ -217,11 +213,7 @@ class chatsearcher:
             llm = HuggingFaceTextGenInference(
                 inference_server_url="https://em-german-70b.llm.mylab.th-luebeck.dev/",
                 max_new_tokens=max_new_tokens,
-                top_k=10,
-                top_p=0.95,
-                typical_p=0.95,
                 temperature=temperature,
-                repetition_penalty=1.03,
             )
             chatresponse = llm(prompt)
 
@@ -283,7 +275,7 @@ class chatsearcher:
 
         return {"status": "200", "searchterms": searchterms, "results": results[:top_k]}
 
-    def predict_for_skill(self, skill, embedded_doc):
+    def predict_for_skill(self, skill, embedded_doc, skilldb):
         predictions = []
         relevant_skills = skilldb.similarity_search_with_score(skill["title"], 3)
         for relevant_skill in relevant_skills:

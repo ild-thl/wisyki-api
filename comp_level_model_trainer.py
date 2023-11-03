@@ -33,8 +33,6 @@ class comp_level_model_trainer():
         st = time.time()
         # Load data.
         labeled_data = pd.json_normalize(training_data)
-        # Convert all courses with label D to label C
-        labeled_data["label"].replace('D', 'C', inplace=True)
         
         log += "\nTraining data size: " + str(labeled_data.shape[0])
 
@@ -61,7 +59,7 @@ class comp_level_model_trainer():
 
         # Create labels for the test data.
         prediction = model.predict(X_test)
-        labels = ["A", "B", "C"]
+        labels = ["A", "B", "C", "D"]
         log += "\n\n" + classification_report(y_test, prediction, target_names=labels, zero_division=0)
         report = classification_report(y_test, prediction, target_names=labels, zero_division=0, output_dict=True)
 
