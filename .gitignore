@@ -1,8 +1,4 @@
-__pycache__/*
-logs/*
-data/*
-models/*
-venv
-*notrack*
+**/__pycache__/
+venv/
 .env
-.python-version
+data/training/
