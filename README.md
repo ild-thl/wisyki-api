@@ -2,10 +2,13 @@
 
 The WISYKI-API is a tool developed as part of the [WISY@KI project](https://www.wisyki.de/) that provides capabilities to predict ESCO, GRETA, and DKZ Skills based on given course descriptions or learning outcomes. It also has the ability to predict competency levels.
 
-The application uses two fine-tuned models:
+The application leverages two fine-tuned models:
 
-1. [Instructor SkillFit](https://huggingface.co/pascalhuerten/instructor-skillfit): A fine-tuning of teh embedding model [hkunlp/instructor-base](https://huggingface.co/hkunlp/instructor-base) used for retrieving relevant skills from the vector database.
-2. [BGE Reranker SkillFit](https://huggingface.co/pascalhuerten/bge_reranker_skillfit): A fine-tuning of the cross-encoder model [BAAI/bge-reranker-base](https://huggingface.co/BAAI/bge-reranker-base) used for reranking/validating skill predictions.
+1. [Instructor SkillFit](https://huggingface.co/pascalhuerten/instructor-skillfit): A derivative of the embedding model [hkunlp/instructor-base](https://huggingface.co/hkunlp/instructor-base), this model is instrumental in extracting pertinent skills from the vector database.
+
+2. [BGE Reranker SkillFit](https://huggingface.co/pascalhuerten/bge_reranker_skillfit): This model, a fine-tuned version of the cross-encoder model [BAAI/bge-reranker-base](https://huggingface.co/BAAI/bge-reranker-base), is employed for the validation and reranking of skill predictions.
+
+The fine-tuning of these models was executed using a diverse set of training data. This data, which includes learning outcomes along with positive and negative labels representing ESCO and GRETA skills, was sourced from the INVITE projects GRETA, MYEdULife, and WISY@KI. Additionally, synthetic data, generated through the LLM validation model (mistral-medium) available in this API, was incorporated into the training process to enhance diversity, especially considering the scarcity of human-validated training data.
 
 In addition to the above models, the WISYKI-API also uses other models via their APIs for learning outcome extraction and LLM validation. Depending on the request, the following models are used:
 
