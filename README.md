@@ -2,6 +2,27 @@
 
 The WISYKI-API is a tool developed as part of the [WISY@KI project](https://www.wisyki.de/) that provides capabilities to predict ESCO, GRETA, and DKZ Skills based on given course descriptions or learning outcomes. It also has the ability to predict competency levels.
 
+The application uses two fine-tuned models:
+
+1. [Instructor SkillFit](https://huggingface.co/pascalhuerten/instructor-skillfit): A fine-tuning of teh embedding model [hkunlp/instructor-base](https://huggingface.co/hkunlp/instructor-base) used for retrieving relevant skills from the vector database.
+2. [BGE Reranker SkillFit](https://huggingface.co/pascalhuerten/bge_reranker_skillfit): A fine-tuning of the cross-encoder model [BAAI/bge-reranker-base](https://huggingface.co/BAAI/bge-reranker-base) used for reranking/validating skill predictions.
+
+In addition to the above models, the WISYKI-API also uses other models via their APIs for learning outcome extraction and LLM validation. Depending on the request, the following models are used:
+
+For learning outcome extraction, one of the following lightweight models is used:
+
+1. [zephyr-7b-alpha](https://wiki.mylab.th-luebeck.dev/de/mylab-llms)
+2. mistral-small (API key required)
+3. gpt-3.5-turbo-1106 (API key required)
+
+For more powerful LLM validation, one of the following lightweight models is used:
+
+1. [em-german-70b](https://wiki.mylab.th-luebeck.dev/de/mylab-llms)
+2. mistral-medium (API key required)
+3. gpt-4-0125-preview (API key required)
+
+Please note that some of these models require an API key for access.
+
 ## Features
 
 * Predict ESCO, GRETA, and DKZ Skills based on course descriptions or learning outcomes.
