@@ -87,7 +87,7 @@ For more details on how to use the API, please refer to the [API Documentation](
 
 This service uses the ESCO classification of the European Commission.
 
-This API was developed as part of the project WISY@KI by the Institut für interakive System, University of apllied Science Lübeck and was funded by the Federal Ministry of Education and Research.
+This API was developed as part of the project WISY@KI by the Institut für interakive Systeme, Technical University of Applied Sciences Lübeck and was funded by the Federal Ministry of Education and Research.
 
 <div style="display: flex; align-items: center; gap: 35px;">
     <img src="static/bmbf_logo.jpg" alt="BMBF Logo" style="width: 150px; height: auto;">
