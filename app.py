@@ -5,15 +5,17 @@ from src.routes.skill_router import router as skill_router
 from src.routes.complevel_router import router as complevel_router
 from src.setup import setup
 
+# Initialize app
 app = FastAPI()
 
 # Initialize resources
-embedding_functions, skilldbs, reranker, db = setup()
+embedding_functions, skilldbs, reranker, domains, db = setup()
 
 # Store resources in app's state so they can be accessed in views
 app.state.EMBEDDING_FUNCTIONS = embedding_functions
 app.state.SKILLDBS = skilldbs
 app.state.RERANKER = reranker
+app.state.DOMAINS = domains
 app.state.DB = db
 
 # Register routes

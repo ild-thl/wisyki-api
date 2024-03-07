@@ -54,6 +54,16 @@ def load_reranker():
         "pascalhuerten/bge_reranker_skillfit", use_fp16=True
     )  # use fp16 can speed up computing
 
+def load_domains():
+    with open(os.path.join("data", "domains", "languages_de.txt"), "r", encoding='utf-8') as file:
+        languages = [line.lower().strip() for line in file.read().splitlines()]
+    with open(os.path.join("data", "domains", "programminglanguages.txt"), "r", encoding='utf-8') as file:
+        programminglanguages = [line.lower().strip() for line in file.read().splitlines()]
+    with open(os.path.join("data", "domains", "otherdomains.txt"), "r", encoding='utf-8') as file:
+        otherdomains = [line.lower().strip() for line in file.read().splitlines()]
+    
+    domains = set(languages) | set(programminglanguages) | set(otherdomains)
+    return domains
 
 def setup():
     embedding_functions = load_embedding_functions()
@@ -64,7 +74,8 @@ def setup():
     }
     reranker = load_reranker()
 
-    # db = None
+    domains = load_domains()
+    
     db = DB()
 
-    return embedding_functions, skilldbs, reranker, db
+    return embedding_functions, skilldbs, reranker, domains, db

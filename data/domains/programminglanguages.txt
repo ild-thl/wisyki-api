@@ -1,0 +1,42 @@
+Scratch
+Assembly
+Webprogrammierung
+Visual Basic
+Swift
+APL
+C++
+Haskell
+AJAX
+Smalltalk
+ASP.NET
+Common Lisp
+SAS language
+CoffeeScript
+Prolog
+JavaScript
+OpenEdge Advanced Business Language
+ABAP
+TypeScript
+Python
+Groovy
+COBOL
+Pascal
+C#
+MATLAB
+Ruby
+Java
+Lisp
+ML
+Objective-C
+Perl
+PHP
+VBScript
+Erlang
+R
+Rust
+GO
+Kotlin
+Scala
+Shell
+Lua
+Dart

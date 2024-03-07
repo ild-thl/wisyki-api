@@ -37,6 +37,10 @@ class SkillRetrieverRequest(BaseModel):
     score_cutoff: float = Field(default=1)
     openai_api_key: Optional[str] = Field(default=None)
     mistral_api_key: Optional[str] = Field(default=None)
+    domain_specific_score_cutoff: float = Field(
+        default=0.8,
+        description="The minimum score for a domain-specific skill to be included in the results.",
+    )
 
     # Ensure that skill_taxonomy is one of the available taxonomies.
     @validator("skill_taxonomy", pre=True, always=True)
@@ -77,6 +81,10 @@ class SkillRetrieverRequest(BaseModel):
 class LegacySkillRetrieverRequest(SkillRetrieverRequest):
     trusted_score: float = Field(default=0.2)
     skillfit_validation: bool = Field(default=False)
+    domain_specific_score_cutoff: float = Field(
+        default=0.2,
+        description="The minimum score for a domain-specific skill to be included in the results.",
+    )
 
 
 class SkillRetrieverResponse(BaseModel):

@@ -11,7 +11,7 @@ from langchain_core.messages import SystemMessage
 
 
 class SkillRetriever:
-    def __init__(self, embedding, reranker, skilldbs, request):
+    def __init__(self, embedding, reranker, skilldbs, domains, request):
         """
         Initialize the SkillRetriever object.
 
@@ -19,12 +19,14 @@ class SkillRetriever:
         - embedding: The embedding model.
         - reranker: The reranker model.
         - skilldbs: A dictionary of skill databases.
+        - domains: A set of domains.
         - request: The request object containing the request parameters.
         """
         self.embedding = embedding
         self.reranker = reranker
         self.skill_taxonomy = request.skill_taxonomy
         self.skilldb = skilldbs[self.skill_taxonomy]
+        self.domains = domains
         self.doc = request.doc
         self.los = request.los
         self.validated_skills = request.skills
@@ -43,6 +45,7 @@ class SkillRetriever:
         self.openai_api_key = request.openai_api_key
         self.mistral_api_key = request.mistral_api_key
         self.score_cutoff = request.score_cutoff
+        self.domain_specific_score_cutoff = request.domain_specific_score_cutoff
 
     async def predict(self) -> tuple:
         """
@@ -65,6 +68,9 @@ class SkillRetriever:
 
         # Finetune predictions based on the known skills.
         predictions = self.finetune_on_validated_skills(predictions)
+
+        # Filter out domain specific skills if the domain is not mentioned in the learning outcomes.
+        predictions = self.filter_domain(predictions, learningoutcomes)
 
         # Reduce amount of predictions before performance hungry validation.
         predictions = predictions[: int(self.top_k * 1.5)]
@@ -98,6 +104,60 @@ class SkillRetriever:
 
         # Return predictions.
         return self.los, predictions[: self.top_k]
+
+    def filter_domain(self, predictions: list, learning_outcomes: str) -> list:
+        """
+        Filters out predictions based on language set, programming languages, other domains and learning outcomes.
+        This method assumes that domain specific skills can only be valid if the domain is metioned by word in the original learning outcomes.
+
+        Args:
+        predictions (list): List of prediction objects.
+        learning_outcomes (str): String of learning outcomes.
+
+        Returns:
+        list: Filtered list of predictions.
+        """
+        filtered = []
+
+        learning_outcomes_lower = learning_outcomes.lower()
+
+        # Get domain sepecific skills.
+        for prediction in predictions:
+            is_domain_specific = False
+            relevant_domain = ""
+            # if domain in prediction title.
+            for domain in self.domains:
+                prediction_title_lower = prediction.title.lower()
+                prediction_title_words = (
+                    prediction_title_lower.split()
+                    if " " in prediction_title_lower
+                    else [prediction_title_lower]
+                )
+
+                if len(domain) < 4 and " " not in domain:
+                    # Short domains have to be present as whole word.
+                    if domain in prediction_title_words:
+                        is_domain_specific = True
+                        relevant_domain = domain
+                        break
+                else:
+                    # Longer domains are allowed to be part of a word.
+                    if domain in prediction_title_lower:
+                        is_domain_specific = True
+                        relevant_domain = domain
+                        break
+
+            if is_domain_specific:
+                # Filter out skills, if the relevant domain is not mentioned in the learning outcomes.
+                if not relevant_domain in learning_outcomes_lower:
+                    continue
+                # Or filter out skills, if the score is below the domain specific score cutoff.
+                if prediction.score < self.domain_specific_score_cutoff:
+                    continue
+
+            filtered.append(prediction)
+
+        return filtered
 
     async def get_learning_outcomes(self) -> str:
         """
