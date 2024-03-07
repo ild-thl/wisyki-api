@@ -1,8 +1,6 @@
 import psycopg2
 import os
 import re
-
-
 class DB:
     def __init__(self):
         """
@@ -114,14 +112,22 @@ class DB:
         
         return course_id
 
-    def get_course_skills(self):
+    def get_course_skills(self, course_id: str) -> list:
         """
-        Retrieves the course skills from the database.
+        Retrieves the skills for a specific course from the database.
+
+        Parameters:
+            course_id (str): The ID of the course.
 
         Returns:
-            A list of tuples containing the course text, skill id, and validity.
+            A list of tuples containing the course text, skill id, validity, skill name, and skill taxonomy.
         """
         self.cursor.execute(
-            "SELECT d.text, s.id, ds.valid FROM courses d, skills s, course_skills ds WHERE d.id = ds.course_id AND s.id = ds.skill_id"
+            """
+            SELECT d.text, s.id, ds.valid, s.name, s.taxonomy 
+            FROM courses d, skills s, course_skills ds 
+            WHERE d.id = ds.course_id AND s.id = ds.skill_id AND d.id = ?
+            """,
+            (course_id,)
         )
         return self.cursor.fetchall()

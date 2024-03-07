@@ -110,13 +110,24 @@ class UpdateCourseSkillsResponse(BaseModel):
 
 
 class CourseSkill(BaseModel):
-    course_text: str
-    skill_id: str
-    valid: bool
+    id: str = Field(..., description="The ID of the skill.")
+    title: str = Field(..., description="The title of the skill.")
+    taxonomy: str = Field(..., description="The taxonomy of the skill.")
+    valid: bool = Field(
+        ...,
+        description="Indicates whether the skill accurately represents the information in the supporting document. A skill is considered a valid match if it accurately reflects the skills described in the document.",
+    )
 
 
 class GetCourseSkillsResponse(BaseModel):
-    course_skills: List[CourseSkill]
+    id: int = Field(..., description="The ID of the course.")
+    doc: str = Field(
+        ...,
+        description="The document representing the source of the validated skill predictions.",
+    )
+    skills: List[CourseSkill] = Field(
+        default=[], description="The courses learning outcomes as skills."
+    )
 
 
 class BaseEmbeddingRequest(BaseModel):
@@ -283,14 +294,30 @@ def update_course_skills(request: List[UpdateCourseSkillsRequest], db=Depends(ge
     return UpdateCourseSkillsResponse(updated_courses=updated_courses)
 
 
-@router.get("/getCourseSkills", response_model=GetCourseSkillsResponse)
-def get_course_skills(db=Depends(get_db)):
-    course_skills = db.get_course_skills()
+@router.get(
+    "/getCourseSkills/{course_id}",
+    response_model=GetCourseSkillsResponse,
+    description="Get the skills of a course.",
+)
+def get_course_skills(
+    course_id: str = Path(..., description="The ID of the course."), db=Depends(get_db)
+):
+    skills = db.get_course_skills(course_id)
+    if not skills:
+        return GetCourseSkillsResponse(id=course_id, doc="", skills=[])
+
     return GetCourseSkillsResponse(
-        course_skills=[
-            CourseSkill(course_text=cs[0], skill_id=cs[1], valid=cs[2])
-            for cs in course_skills
-        ]
+        id=course_id,
+        doc=skills[0].text,
+        skills=[
+            CourseSkill(
+                id=skill.id,
+                title=skill.title,
+                taxonomy=skill.taxonomy,
+                valid=skill.valid,
+            )
+            for skill in skills
+        ],
     )
 
 
