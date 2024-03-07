@@ -1,6 +1,6 @@
 # WISYKI-API
 
-The WISYKI-API is a tool developed as part of the [WISY@KI project](https://www.wisyki.de/) that provides capabilities to predict ESCO, GRETA, and DKZ Skills based on given course descriptions or learning outcomes. It also has the ability to predict competency levels.
+The WISYKI-API is a tool developed as part of the [WISY@KI project](https://www.wisyki.de/) that provides capabilities to predict ESCO, GRETA, and DKZ Skills based on given course descriptions or learning outcomes. Predictions include learning outcomes, prerequisites, keywords and competency levels.
 
 The application leverages two fine-tuned models:
 
@@ -12,15 +12,15 @@ The fine-tuning of these models was executed using a diverse set of training dat
 
 In addition to the above models, the WISYKI-API also uses other models via their APIs for learning outcome extraction and LLM validation. Depending on the request, the following models are used:
 
-For learning outcome extraction, one of the following lightweight models is used:
+For learning outcome extraction, one of the following models is used:
 
-1. [zephyr-7b-alpha](https://wiki.mylab.th-luebeck.dev/de/mylab-llms)
+1. Mixtral-8x7B (hosted in SH by THL)
 2. mistral-small (API key required)
 3. gpt-3.5-turbo-1106 (API key required)
 
-For more powerful LLM validation, one of the following lightweight models is used:
+For more challenging tasks like validation, one of the following models is used:
 
-1. [em-german-70b](https://wiki.mylab.th-luebeck.dev/de/mylab-llms)
+1. Mixtral-8x7B (hosted in SH by THL)
 2. mistral-medium (API key required)
 3. gpt-4-0125-preview (API key required)
 
@@ -51,6 +51,7 @@ The following environment variables are required:
 * `HOST_PORT`: The host port.
 * `POSTGRES_PORT`: The port for the PostgreSQL database.
 * `PGADMIN_PORT`: The port for PgAdmin.
+* `ROOT_PATH`: This variable is used when the API is running behind a proxy. If the API is served under a subpath, such as `/api/v1`, then `ROOT_PATH` should be set to that subpath (`/api/v1` in this case). If the API is not behind a proxy or is served from the root path, this variable can be left empty.
 
 ### Steps
 
@@ -69,7 +70,7 @@ The following environment variables are required:
 3. Run the Docker compose command:
 
     ```bash
-    docker-compose up
+    docker-compose up -d
     ```
 
 Alternatively, you can pull the Docker image from Docker Hub:
@@ -80,7 +81,7 @@ docker pull pascalhuerten/comp-ai-api:latest
 
 ## API Documentation
 
-For more details on how to use the API, please refer to the [API Documentation](http://141.144.239.168/redoc).
+For more details on how to use the API, please refer to the [API Documentation](https://ai-isy.th-luebeck.de/competence-analyser/redoc).
 
 ## Support
 

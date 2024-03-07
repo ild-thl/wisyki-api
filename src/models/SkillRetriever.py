@@ -1,14 +1,14 @@
+from .SkillPrediction import SkillPrediction as Prediction
+from .get_chat_llm import get_llm
 import json
 import re
-from .SkillPrediction import SkillPrediction as Prediction
+from typing import Tuple, List
 from sklearn.metrics.pairwise import cosine_similarity
-from langchain.llms import HuggingFaceTextGenInference
-from langchain_mistralai.chat_models import ChatMistralAI
-from langchain_openai import ChatOpenAI
+from sklearn.cluster import AgglomerativeClustering
+from sklearn.metrics import silhouette_score
 from langchain_core.output_parsers import StrOutputParser
 from langchain.prompts import HumanMessagePromptTemplate, ChatPromptTemplate
 from langchain_core.messages import SystemMessage
-
 
 class SkillRetriever:
     def __init__(self, embedding, reranker, skilldbs, domains, request):
@@ -29,6 +29,7 @@ class SkillRetriever:
         self.domains = domains
         self.doc = request.doc
         self.los = request.los
+        self.prerequisites = request.prerequisites
         self.validated_skills = request.skills
         self.validated_skill_uris = [skill.uri for skill in self.validated_skills]
         self.valid_skill_labels = [
@@ -46,15 +47,27 @@ class SkillRetriever:
         self.mistral_api_key = request.mistral_api_key
         self.score_cutoff = request.score_cutoff
         self.domain_specific_score_cutoff = request.domain_specific_score_cutoff
+        self.target = ""
 
-    async def predict(self) -> tuple:
+        # Initialize the used_models list
+        self.used_models = []
+
+    async def predict(self, target="learning_outcomes") -> tuple:
         """
         Predicts the top-k skills based on the learning outcomes.
 
         Returns:
             tuple: A tuple containing the learning outcomes and the predicted skills.
         """
-        learningoutcomes = await self.get_learning_outcomes()
+        self.target = target
+
+        if target == "learning_outcomes":
+            learningoutcomes = await self.get_learning_outcomes()
+        else:  # target == "prerequisites"
+            learningoutcomes = await self.get_prerequisites()
+
+        if len(learningoutcomes) == 0:
+            return self.los, []
 
         # Embed the learning outcomes.
         embedded_doc = self.embedding.embed_documents([learningoutcomes])
@@ -66,8 +79,9 @@ class SkillRetriever:
         if not self.llm_validation and not self.do_rerank:
             predictions = self.applyDynamicThreshold(predictions)
 
-        # Finetune predictions based on the known skills.
-        predictions = self.finetune_on_validated_skills(predictions)
+        if target == "learning_outcomes":
+            # Finetune predictions based on the known skills.
+            predictions = self.finetune_on_validated_skills(predictions)
 
         # Filter out domain specific skills if the domain is not mentioned in the learning outcomes.
         predictions = self.filter_domain(predictions, learningoutcomes)
@@ -88,7 +102,7 @@ class SkillRetriever:
             if min_score < 0:
                 for prediction in predictions:
                     prediction.score -= min_score
-            
+
             max_score = predictions[0].score
             if max_score > 1:
                 for prediction in predictions:
@@ -159,6 +173,26 @@ class SkillRetriever:
 
         return filtered
 
+    async def get_prerequisites(self) -> str:
+        """
+        Prepares the prerequisites for further processing.
+
+        Returns:
+            tuple: A tuple containing the prepared prerequisites and the embedded document.
+        """
+        prerequisites = ""
+        self.los = self.prerequisites
+        if len(self.prerequisites) > 0:
+            prerequisites = "\n".join(self.prerequisites)
+        elif self.use_llm and self.doc and len(self.doc) > 0:
+            prerequisites = await self.extract_prerequisites(self.doc)
+            self.los = prerequisites.split("\n")
+
+        # Remove empty lines from self.los.
+        self.los = [line for line in self.los if line]
+
+        return prerequisites
+
     async def get_learning_outcomes(self) -> str:
         """
         Prepares the learning outcomes for further processing.
@@ -179,7 +213,57 @@ class SkillRetriever:
         learningoutcomes = "\n".join(self.valid_skill_labels) + "\n" + learningoutcomes
         self.los.extend(self.valid_skill_labels)
 
+        # Remove empty lines from self.los.
+        self.los = [line for line in self.los if line]
+
         return learningoutcomes
+
+    async def extract_prerequisites(self, doc: str) -> str:
+        """
+        Extracts the prerequisites from a given document.
+
+        Args:
+            doc (str): The document from which to extract the prerequisites.
+
+        Returns:
+            str: The extracted prerequisites.
+        """
+
+        # Create messages for chat.
+        messages = [
+            SystemMessage(
+                content=(
+                    "Als Redakteur identifizierst du explizit genannte Voraussetzungen oder benötigte Vorerfahrungen in Bildungsdokumenten. Das heißt du benennst Fähigkeiten und Wissen, die Bildungsinteressierte bereits haben sollten bevor sie das Bildungsangebot wahrnehmen."
+                )
+            ),
+            HumanMessagePromptTemplate.from_template(
+                "Folgendes Bildungsdokument liegt vor:"
+                "{course}"
+                ""
+                "Liste die explizit genannten Voraussetzungen oder benötigte Vorerfahrungen auf, jeweils in einer neuen Zeile."
+                "Nutze kurze, einfache Sprache und BLOOM-Verben für Fähigkeiten, Nomen für Wissen."
+                "Bennene nicht was nicht benötigt wird, sondern nur was benötigt wird."
+                "Wenn keine Vorraussetzungen benannt werden, antworte mit 'Keine Voraussetzungen benannt'."
+                ""
+                "Folgende Voraussetzungen beschreiben das Dokument am besten:"
+            ),
+        ]
+
+        prerequisites, used_model = await self.get_chatresponse(
+            messages, {"course": doc[:3500]}, use_most_competent_llm=False
+        )
+        self.add_model_stats(used_model, "Extract prerequisites from document.")
+
+        # Check for 'Keine Voraussetzungen benannt' and return empty string if found.
+        if "Keine Voraussetzungen benannt" in prerequisites:
+            return ""
+
+        # Remove list decorations using regular expressions
+        prerequisites = re.sub(
+            r"^ *[\d.-]+ *|^ *\* *|^ *- *", "", prerequisites, flags=re.MULTILINE
+        )
+
+        return prerequisites
 
     async def extract_learning_outcomes(self, doc: str) -> str:
         """
@@ -196,19 +280,29 @@ class SkillRetriever:
         messages = [
             SystemMessage(
                 content=(
-                    "Als Redakteur identifizierst du explizit genannte Lernziele in Kursbeschreibungen. Ignoriere Vorraussetzungen und Zielgruppen."
+                    "Als Redakteur identifizierst du explizit genannte Lernziele in Bildungsangeboten. Das heißt du benennst die Fähigkeiten und das Wissen, das Teilnehmer vermutlich erlangen werden oder erstreben."
                 )
             ),
             HumanMessagePromptTemplate.from_template(
-                "Kursbeschreibung: {course}"
+                "Folgendes Bildungsdokument liegt vor:"
+                "{course}"
+                ""
                 "Liste die explizit genannten Lernziele auf, jeweils in einer neuen Zeile."
                 "Nutze kurze, einfache Sprache und BLOOM-Verben für Fähigkeiten, Nomen für Wissen."
+                "Wenn keine Lernziele benannt werden, antworte mit 'Keine Lernziele benannt'."
+                ""
+                "Folgende Kompetenzen und Lernziele beschreiben das Dokument am Besten:"
             ),
         ]
 
-        learningoutcomes = await self.get_chatresponse(
+        learningoutcomes, used_model = await self.get_chatresponse(
             messages, {"course": doc[:3500]}, use_most_competent_llm=False
         )
+        self.add_model_stats(used_model, "Extract learning outcomes from document.")
+
+        # Check for 'Keine Lernziele benannt' and return empty string if found.
+        if "Keine Lernziele benannt" in learningoutcomes:
+            return ""
 
         # Remove list decorations using regular expressions
         learningoutcomes = re.sub(
@@ -216,6 +310,46 @@ class SkillRetriever:
         )
 
         return learningoutcomes
+
+    def cluster_documents(self, documents: List[str]) -> List[List[str]]:
+        # If there are less than two documents, skip the clustering.
+        if len(documents) < 2:
+            return [documents]
+
+        # Compute the word embeddings for each learning outcome.
+        lo_embeddings = self.embedding.embed_documents(documents)
+
+        # If there are exactly 2 documents, use cosine similarity to determine the similarity between them.
+        if len(documents) == 2:
+            similarity = cosine_similarity(lo_embeddings)
+            if similarity[0][1] > 0.5:
+                return [documents]
+
+            return [[documents[0]], [documents[1]]]
+
+        # Use a hierarchical clustering algorithm to group the documents.
+        clustering = AgglomerativeClustering().fit(lo_embeddings)
+
+        # Determine the optimal number of clusters.
+        silhouette_scores = []
+        for n_clusters in range(2, len(documents)):
+            clustering.n_clusters = n_clusters
+            labels = clustering.labels_
+            score = silhouette_score(lo_embeddings, labels)
+            silhouette_scores.append(score)
+        optimal_n_clusters = silhouette_scores.index(max(silhouette_scores)) + 2
+
+        # Assign each document to a cluster.
+        clustering.n_clusters = optimal_n_clusters
+        labels = clustering.labels_
+
+        # Create subsets of documents based on their cluster assignments.
+        clusters = []
+        for cluster_id in range(optimal_n_clusters):
+            cluster = [doc for doc, label in zip(documents, labels) if label == cluster_id]
+            clusters.append(cluster)
+
+        return clusters
 
     def get_top_similar_skills(self, learning_outcomes: list) -> list:
         """
@@ -227,37 +361,35 @@ class SkillRetriever:
         Returns:
             list: A list of top similar skills.
         """
+        # Escape early if there are no learning outcomes.
+        if len(learning_outcomes) == 0:
+            return []
+
         similar_skills = []
-        # Determine the size of the subsets and the amount of overlap based on the length of learning_outcomes.
-        subset_size = max(5, len(learning_outcomes) // 10)
-        overlap = max(0, subset_size // 2)
 
-        # Create overlapping subsets of learning_outcomes and do similarity search for each subset.
-        subsets = []
-        if len(learning_outcomes) <= subset_size:
-            subsets.append("\n".join(learning_outcomes))
-        else:
-            for i in range(0, len(learning_outcomes) - overlap, subset_size - overlap):
-                subsets.append("\n".join(learning_outcomes[i : i + subset_size]))
+        clusters = self.cluster_documents(learning_outcomes)
 
-        # Do similarity search for each subset.
-        for subset in subsets:
-            similar_subset_skills = (
+        # Do similarity search for each cluster.
+        self.add_model_stats(
+            "pascalhuerten/instructor-skillfit",
+            "Embed learning outcomes for similarity search against skill database.",
+        )
+        for cluster in clusters:
+            similar_cluster_skills = (
                 self.skilldb.similarity_search_with_relevance_scores(
-                    subset, min(self.top_k, 20) + len(self.validated_skills)
+                    "\n".join(cluster), min(self.top_k, 20) + len(self.validated_skills)
                 )
             )
-
             # Convert skill documents to predictions.
             predictions = [
-                self.create_prediction(skill) for skill in similar_subset_skills
+                self.create_prediction(skill) for skill in similar_cluster_skills
             ]
 
             # Filter out predictions that are already known or duplicates or not part of the filterconcepts.
             predictions = self.filter_predictions(predictions, sort=True)
 
-            # if self.do_rerank:
-            #     predictions = self.rerank(predictions, "\n".join(subset))
+            if self.do_rerank:
+                predictions = self.rerank(predictions, "\n".join(cluster))
 
             similar_skills.extend(predictions)
 
@@ -266,65 +398,17 @@ class SkillRetriever:
 
         # Rerank the predictions based on all learning outcomes.
         if self.do_rerank:
-            similar_skills = self.rerank(similar_skills, "\n".join(learning_outcomes))
+            # similar_skills = self.rerank(similar_skills, "\n".join(learning_outcomes))
+            self.add_model_stats(
+                "pascalhuerten/bge_reranker_skillfit",
+                "Reranking similarity search results based on learning outcomes.",
+            )
 
         return similar_skills
 
-    def get_thl_model(self, use_most_competent_llm=False):
-        thlmodel = "em-german-70b" if use_most_competent_llm else "zephyr-7b-alpha"
-        return HuggingFaceTextGenInference(
-            inference_server_url=f"https://{thlmodel}.llm.mylab.th-luebeck.dev",
-            temperature=self.temperature,
-            seed=42,  # we use a seed of 42 to get reproducible results
-            max_new_tokens=512,  # embedding models are trained on 512 sequence length, so we use this as a max output length for chat responses
-        )
-
-    def get_mistral_model(self, use_most_competent_llm=False):
-        return ChatMistralAI(
-            model="mistral-medium" if use_most_competent_llm else "mistral-small",
-            mistral_api_key=self.mistral_api_key,
-            temperature=self.temperature,
-            seed=42,
-            max_tokens=512,
-        )
-
-    def get_openai_model(self, use_most_competent_llm=False):
-        return ChatOpenAI(
-            model="gpt-4-0125-preview"
-            if use_most_competent_llm
-            else "gpt-3.5-turbo-1106",
-            openai_api_key=self.openai_api_key,
-            temperature=self.temperature,
-            seed=42,
-            max_tokens=512,
-        )
-
-    def get_model(self, use_most_competent_llm=False):
-        """
-        Retrieves the appropriate language model for chat responses.
-
-        Args:
-            use_most_competent_llm (bool): Whether to use the most competent language model.
-
-        Returns:
-            object: The language model.
-        """
-        if self.mistral_api_key:
-            return self.get_mistral_model(use_most_competent_llm).with_fallbacks(
-                [self.get_thl_model(use_most_competent_llm)]
-            )
-        if self.openai_api_key:
-            return self.get_openai_model(use_most_competent_llm).with_fallbacks(
-                [self.get_thl_model(use_most_competent_llm)]
-            )
-
-        return self.get_thl_model(use_most_competent_llm).with_fallbacks(
-            [self.get_mistral_model(use_most_competent_llm)]
-        )
-
     async def get_chatresponse(
         self, messages: list, context: dict, use_most_competent_llm=False
-    ) -> str:
+    ) -> Tuple[str, str]:
         """
         Retrieves a chat response based on the given messages and context.
 
@@ -338,13 +422,20 @@ class SkillRetriever:
         """
         prompt = ChatPromptTemplate.from_messages(messages)
 
-        chain = prompt | self.get_model(use_most_competent_llm) | StrOutputParser()
+        model, model_name = get_llm(
+            self.openai_api_key,
+            self.mistral_api_key,
+            self.temperature,
+            use_most_competent_llm,
+        )
+
+        chain = prompt | model | StrOutputParser()
 
         chatresponse = chain.invoke(context)
 
         chatresponse = chatresponse.replace("ASSISTANT: ", "").strip()
 
-        return chatresponse
+        return chatresponse, model_name
 
     async def validate_with_llm(self, predictions: list) -> list:
         """
@@ -366,30 +457,63 @@ class SkillRetriever:
             context = "\n".join(self.los)
 
         # Create messages for chat.
-        messages = [
-            SystemMessage(
-                content=(
-                    "Du bist ein Redakteur einer Weiterbildungsplatform. Deine Aufgabe ist es zu prüfen, welche der vorgeschlagenen Kompetenzen zum Kursangebot inhaltlich passen."
-                    "Berücksichtige dabei folgende Fragestellungen."
-                    "Passen die Kompetenzen thematisch zu den Lernzielen des Kurses?"
-                    "Sind die Kompetenzen zu allgemein oder zu spezifisch?"
-                    "Sind die Kompetenzen zu umfangreich oder zu einfach?"
-                )
-            ),
-            HumanMessagePromptTemplate.from_template(
-                "Kursbeschreibung: {course}"
-                "Kompetenzen: {skills}"
-                "Erzeuge eine Liste auschließlich derer Kompetenzen, die sehr gut zu den Lernzielen des Kurses passen. Behalte dabei den Wortlaut der Kompetenzen bei."
-                "Nenne eine Kompetenz pro Zeile. Die Antwort sollte nur die Kompetenzen selbst enthalten, ohne Einleitungen oder zusätzliche Worte."
-            ),
-        ]
+        if self.target == "learning_outcomes":
+            messages = [
+                SystemMessage(
+                    content=(
+                        "Du bist ein Redakteur einer Weiterbildungsplatform. Deine Aufgabe ist es zu prüfen, welche der vorgeschlagenen Kompetenzen zu dem angegebenen Bildungsdokument passen."
+                        "Berücksichtige dabei folgende Fragestellungen."
+                        "Passen die vorgeschlagenen Kompetenzen zum Thema oder zu einzelnen benannten Lernzielen?"
+                        "Sind die Kompetenzen zu allgemein oder zu spezifisch, um auf das Dokument angewandt zu werden?"
+                    )
+                ),
+                HumanMessagePromptTemplate.from_template(
+                    "Folgendes Dokument ist gegeben:"
+                    "{course}"
+                    ""
+                    "Potenzielle Kompetenzen:"
+                    "{skills}"
+                    ""
+                    "Erzeuge eine optimierte Liste auschließlich derer Kompetenzen, die gut das Dokument beschreiben oder darin benannt werden."
+                    "Behalte den genauen Wortlaut der vorgeschlagenen Kompetenzen bei."
+                    "Nenne eine Kompetenz pro Zeile. Die Antwort sollte nur die Kompetenzen selbst enthalten, ohne Einleitungen oder zusätzliche Worte."
+                    ""
+                    "Optimierte Kompetenzen:"
+                ),
+            ]
+        else:  # target == "prerequisites"
+            messages = [
+                SystemMessage(
+                    content=(
+                        "Du bist ein Redakteur einer Weiterbildungsplatform. Deine Aufgabe ist es zu prüfen, welche der vorgeschlagenen Kompetenzen von dem Bildungsangebot benötigt oder empfohlen sind."
+                        "Berücksichtige dabei folgende Fragestellungen."
+                        "Passen die vorgeschlagenen Vorerfahrungen thematisch zu den Voraussetzungen des Kurses oder werden explizit benannt?"
+                        "Differenziere zwischen Voraussetzungen, die explizit benannt werden und solchen, die implizit benötigt werden."
+                        "Sind die Voraussetzungen zu allgemein oder zu spezifisch, um auf das Dokument angewandt zu werden?"
+                    )
+                ),
+                HumanMessagePromptTemplate.from_template(
+                    "Folgendes Dokument ist gegeben:"
+                    "{course}"
+                    ""
+                    "Potenziell passende Vorrausetzungen:"
+                    "{skills}"
+                    ""
+                    "Erzeuge eine optimierte Liste auschließlich derer Voraussetzungen, die gut das Dokument beschreiben oder darin explizit benannt werden."
+                    "Behalte dabei den genauen Wortlaut der potenziellen Voraussetzungen bei."
+                    "Nenne eine Voraussetzung pro Zeile. Die Antwort sollte nur die Voraussetzung selbst enthalten, ohne Einleitungen oder zusätzliche Worte."
+                    ""
+                    "Optimierte Voraussetzungen:"
+                ),
+            ]
 
         # Get chat response from language model.
-        chatresponse = await self.get_chatresponse(
+        chatresponse, used_model = await self.get_chatresponse(
             messages,
             {"course": context[:3500], "skills": "\n".join(skilllabels)},
             use_most_competent_llm=True,
         )
+        self.add_model_stats(used_model, "Validate predictions with language model.")
 
         # Split chatresponse into lines, every line is a valid skill.
         lines = chatresponse.split("\n")
@@ -415,6 +539,9 @@ class SkillRetriever:
             validated.append(predictions[i])
 
         return validated
+
+    def add_model_stats(self, model_name: str, reason: str):
+        self.used_models.append({"model": model_name, "reason": reason})
 
     def rerank(self, predictions: list, leraningoutcomes: str) -> list:
         """
@@ -508,6 +635,9 @@ class SkillRetriever:
         Returns:
             bool: True if the skill is part of a concept, False otherwise.
         """
+        # Do not filter for broader concepts if the target is prerequisites.
+        if self.target == "prerequisites":
+            return True
         # Broader concepts are only available for ESCO skills. If the skill is not an ESCO skill, return True.
         if len(self.filterconcepts) == 0 or "ESCO" not in self.skill_taxonomy:
             return True
@@ -577,7 +707,7 @@ class SkillRetriever:
 
             if self.strict == 2:
                 return predictions[: max_gap_skill_index_2 + 1]
-            
+
             if self.strict == 1:
                 # Return predictions up to the third largest gap.
                 max_gap = 0
