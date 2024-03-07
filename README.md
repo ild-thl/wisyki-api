@@ -1,6 +1,6 @@
 # WISYKI-API
 
-The WISYKI-API is a tool developed as part of the [WISY@KI project](https://www.wisyki.de/) that provides capabilities to predict ESCO, GRETA, and DKZ Skills based on given course descriptions or learning outcomes. Predictions include learning outcomes, prerequisites, keywords and competency levels.
+The WISYKI-API is a tool developed as part of the [WISY@KI project](https://www.wisyki.de/) that provides capabilities to predict [ESCO](https://esco.ec.europa.eu/), [GRETA](https://www.greta-die.de/webpages/greta-interaktiv), and DKZ Skills based on given course descriptions or learning outcomes. Predictions include learning outcomes, prerequisites, keywords and competency levels.
 
 The application leverages two fine-tuned models:
 
@@ -21,7 +21,7 @@ For learning outcome extraction, one of the following models is used:
 For more challenging tasks like validation, one of the following models is used:
 
 1. Mixtral-8x7B (hosted in SH by THL)
-2. mistral-medium (API key required)
+2. mistral-large (API key required)
 3. gpt-4-0125-preview (API key required)
 
 Please note that some of these models require an API key for access.
@@ -82,6 +82,17 @@ docker pull pascalhuerten/comp-ai-api:latest
 ## API Documentation
 
 For more details on how to use the API, please refer to the [API Documentation](https://ai-isy.th-luebeck.de/competence-analyser/redoc).
+
+## Acknowledgements
+
+This service uses the ESCO classification of the European Commission.
+
+This API was developed as part of the project WISY@KI by the Institut für interakive System, University of apllied Science Lübeck and was funded by the Federal Ministry of Education and Research.
+
+<div style="display: flex; align-items: center; gap: 35px;">
+    <img src="static/bmbf_logo.jpg" alt="BMBF Logo" style="width: 150px; height: auto;">
+    <img src="static/thl_logo.jpg" alt="THL Logo" style="width: 150px; height: auto;">
+</div>
 
 ## Support
 
