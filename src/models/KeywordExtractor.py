@@ -1,7 +1,7 @@
 from .get_chat_llm import get_llm
 from typing import List
 from keybert.llm import LangChain
-from keybert import KeyLLM, KeyBERT
+from keybert import KeyLLM
 from langchain.chains.question_answering import load_qa_chain
 
 class KeywordExtractor:    
@@ -51,6 +51,11 @@ class KeywordExtractor:
 
         # Extract keywords.
         keywords = self.kw_model.extract_keywords(document, candidate_keywords)
+
         if len(keywords) == 1:
             keywords = keywords[0]
+
+        # if <keywords> or </keywords> in keywords, remove them
+        keywords = [keyword.replace("<keywords>", "").replace("</keywords>", "") for keyword in keywords]
+        
         return keywords

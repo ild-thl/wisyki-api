@@ -23,6 +23,10 @@ class SkillResponse(BaseSkill):
         default=None,
         description="Additional metadata for the skill. Content varies based on the taxonomy.",
     )
+    taxonomy: str
+    source: Optional[str] = Field(
+        default=None, description="The most probable source of the predicted skill."
+    )
 
 
 class SkillRequest(BaseSkill):
@@ -33,12 +37,12 @@ class SkillRequest(BaseSkill):
 
 
 class SkillRetrieverRequest(BaseModel):
-    skill_taxonomy: str = Field(
-        default="ESCO",
-        description="The target taxonomy for skill predictions. Can be one of 'ESCO', 'DKZ', 'GRETA'.",
+    taxonomies: List[str] = Field(
+        default=["ESCO"],
+        description="The target taxonomies for skill predictions. Can be one or many of 'ESCO', 'DKZ', 'GRETA'.",
     )
     targets: List[str] = Field(
-        default=["learning_outcomes", "prerequisites", "comp_level", "keywords"],
+        default=["learning_outcomes"],
         description="The target metadata to be predicted. Can be one or more of 'learning_outcomes', 'prerequisites', 'comp_level', 'keywords'.",
     )
     doc: Optional[str] = Field(
@@ -102,13 +106,6 @@ class SkillRetrieverRequest(BaseModel):
         description="An API key for Mistral. If use_llm or llm_validation is true, this key enables usage of propriatary Mistral models.",
     )
 
-    # Ensure that skill_taxonomy is one of the available taxonomies.
-    @validator("skill_taxonomy", pre=True, always=True)
-    def check_skill_taxonomy(cls, v):
-        if v not in ["ESCO", "DKZ", "GRETA"]:
-            raise ValueError('skill_taxonomy must be one of "ESCO", "DKZ", "GRETA"')
-        return v
-
     # Ensure that either doc or los is provided.
     @validator("doc", pre=True, always=True)
     def check_doc(cls, v, values):
@@ -139,6 +136,10 @@ class SkillRetrieverRequest(BaseModel):
 
 
 class LegacySkillRetrieverRequest(SkillRetrieverRequest):
+    skill_taxonomy: str = Field(
+        default="ESCO",
+        description="The target taxonomy for skill predictions. Can be one of 'ESCO', 'DKZ', 'GRETA'.",
+    )
     trusted_score: float = Field(
         default=0.2,
         description="The minimum score for a skill to be considered as valid.",
@@ -279,8 +280,8 @@ def get_reranker(req: Request):
     return req.app.state.RERANKER
 
 
-def get_skilldbs(req: Request):
-    return req.app.state.SKILLDBS
+def get_skilldb(req: Request):
+    return req.app.state.SKILLDB
 
 
 def get_domains(req: Request):
@@ -299,7 +300,7 @@ async def chatsearch(
     db=Depends(get_db),
     embedding_functions=Depends(get_embedding_functions),
     reranker=Depends(get_reranker),
-    skilldbs=Depends(get_skilldbs),
+    skilldb=Depends(get_skilldb),
     domains=Depends(get_domains),
 ):
     # set trusted_score and core_cutoff to 1- trusted_score and 1 - score_cutoff
@@ -307,16 +308,11 @@ async def chatsearch(
     request.score_cutoff = 1 - request.score_cutoff
     request.domain_specific_score_cutoff = 1 - request.domain_specific_score_cutoff
 
+    if request.skill_taxonomy:
+        request.taxonomies = [request.skill_taxonomy]
+
     if request.skillfit_validation:
         request.rerank = True
-
-    # Ensure that skill_taxonomy is one of the available taxonomies.
-    available_taxonomies = skilldbs.keys()
-    if request.skill_taxonomy not in available_taxonomies:
-        raise HTTPException(
-            status_code=400,
-            detail=f'skill_taxonomy must be one of {", ".join(available_taxonomies)}',
-        )
 
     embedding_function = embedding_functions["instructor-skillfit"]
     embedding_function.query_instruction = (
@@ -327,14 +323,14 @@ async def chatsearch(
     predictor = SkillRetriever(
         embedding_function,
         reranker,
-        skilldbs,
+        skilldb,
         domains,
         request,
     )
 
     try:
         learning_outcomes, predictions = await predictor.predict(
-            target="learning_outcomes"
+            target="learning_outcomes", get_sources="sources" in request.targets
         )
     except requests.Timeout:
         raise HTTPException(status_code=408, detail="Request timed out.")
@@ -347,7 +343,9 @@ async def chatsearch(
             title=skill.title,
             uri=skill.uri,
             score=1 - skill.score,  # score is 1 - score, and 0 is the best score
+            taxonomy=skill.taxonomy,
             metadata=skill.metadata,
+            source=skill.source,
         )
         for skill in predictions
     ]
@@ -377,7 +375,9 @@ def generate_skill_responses(predictions):
             title=skill.title,
             uri=skill.uri,
             score=skill.score,
+            taxonomy=skill.taxonomy,
             metadata=skill.metadata,
+            source=skill.source,
         )
         for skill in predictions
     ]
@@ -411,17 +411,9 @@ async def chatsearch_v2(
     db=Depends(get_db),
     embedding_functions=Depends(get_embedding_functions),
     reranker=Depends(get_reranker),
-    skilldbs=Depends(get_skilldbs),
+    skilldb=Depends(get_skilldb),
     domains=Depends(get_domains),
 ):
-    # Ensure that skill_taxonomy is one of the available taxonomies.
-    available_taxonomies = skilldbs.keys()
-    if request.skill_taxonomy not in available_taxonomies:
-        raise HTTPException(
-            status_code=400,
-            detail=f'skill_taxonomy must be one of {", ".join(available_taxonomies)}',
-        )
-
     # Set the query and embed instructions for the embedding function
     embedding_function = embedding_functions["instructor-skillfit"]
     embedding_function.query_instruction = (
@@ -433,7 +425,7 @@ async def chatsearch_v2(
     predictor = SkillRetriever(
         embedding_function,
         reranker,
-        skilldbs,
+        skilldb,
         domains,
         request,
     )
@@ -448,7 +440,9 @@ async def chatsearch_v2(
 
         # Extract learning outcomes if requested
         if "learning_outcomes" in request.targets:
-            lo, lo_predictions = await predictor.predict(target="learning_outcomes")
+            lo, lo_predictions = await predictor.predict(
+                target="learning_outcomes", get_sources="sources" in request.targets
+            )
             lo_predictions = generate_skill_responses(lo_predictions)
 
             complevelresponse = None
@@ -491,7 +485,9 @@ async def chatsearch_v2(
 
         # Extract prerequisites if requested
         if "prerequisites" in request.targets:
-            prereq, prereq_predictions = await predictor.predict(target="prerequisites")
+            prereq, prereq_predictions = await predictor.predict(
+                target="prerequisites", get_sources="sources" in request.targets
+            )
             prereq_predictions = generate_skill_responses(prereq_predictions)
 
             complevelresponse = None

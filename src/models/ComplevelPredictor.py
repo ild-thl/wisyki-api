@@ -1,6 +1,10 @@
 import pickle
 from pydantic import BaseModel, Field, validator
 from typing import List, Literal
+import warnings
+
+# Ignore the specific warning
+warnings.filterwarnings("ignore", message="^Trying to unpickle estimator", category=UserWarning, module="sklearn")
 
 class PredictCompLevelRequest(BaseModel):
     title: str = Field(default="", description="The title of the course.")

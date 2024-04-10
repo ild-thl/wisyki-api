@@ -22,27 +22,9 @@ def load_embedding_functions():
     }
 
 
-def load_escodb(embedding):
+def load_skilldb(embedding):
     return Chroma(
-        client=PersistentClient("./data/stores/esco_vectorstore"),
-        embedding_function=embedding,
-        client_settings=Settings(anonymized_telemetry=False),
-        collection_metadata={"hnsw:space": "cosine"},
-    )
-
-
-def load_dkzdb(embedding):
-    return Chroma(
-        client=PersistentClient("./data/stores/dkz_vectorstore"),
-        embedding_function=embedding,
-        client_settings=Settings(anonymized_telemetry=False),
-        collection_metadata={"hnsw:space": "cosine"},
-    )
-
-
-def load_gretadb(embedding):
-    return Chroma(
-        client=PersistentClient("./data/stores/greta_vectorstore"),
+        client=PersistentClient("./data/stores/skill_vectorstore"),
         embedding_function=embedding,
         client_settings=Settings(anonymized_telemetry=False),
         collection_metadata={"hnsw:space": "cosine"},
@@ -67,15 +49,11 @@ def load_domains():
 
 def setup():
     embedding_functions = load_embedding_functions()
-    skilldbs = {
-        "ESCO": load_escodb(embedding_functions["instructor-skillfit"]),
-        "DKZ": load_dkzdb(embedding_functions["instructor-skillfit"]),
-        "GRETA": load_gretadb(embedding_functions["instructor-skillfit"]),
-    }
+    skilldb = load_skilldb(embedding_functions["instructor-skillfit"])
     reranker = load_reranker()
 
     domains = load_domains()
     
     db = DB()
 
-    return embedding_functions, skilldbs, reranker, domains, db
+    return embedding_functions, skilldb, reranker, domains, db

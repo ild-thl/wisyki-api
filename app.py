@@ -9,11 +9,11 @@ from src.setup import setup
 app = FastAPI()
 
 # Initialize resources
-embedding_functions, skilldbs, reranker, domains, db = setup()
+embedding_functions, skilldb, reranker, domains, db = setup()
 
 # Store resources in app's state so they can be accessed in views
 app.state.EMBEDDING_FUNCTIONS = embedding_functions
-app.state.SKILLDBS = skilldbs
+app.state.SKILLDB = skilldb
 app.state.RERANKER = reranker
 app.state.DOMAINS = domains
 app.state.DB = db

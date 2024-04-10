@@ -9,23 +9,29 @@ from sklearn.metrics import silhouette_score
 from langchain_core.output_parsers import StrOutputParser
 from langchain.prompts import HumanMessagePromptTemplate, ChatPromptTemplate
 from langchain_core.messages import SystemMessage
+import warnings
+from langchain_core import vectorstores
+
+# Ignore UserWarning from langchain_core.vectorstores
+warnings.filterwarnings("ignore", category=UserWarning, module=vectorstores.__name__)
+
 
 class SkillRetriever:
-    def __init__(self, embedding, reranker, skilldbs, domains, request):
+    def __init__(self, embedding, reranker, skilldb, domains, request):
         """
         Initialize the SkillRetriever object.
 
         Parameters:
         - embedding: The embedding model.
         - reranker: The reranker model.
-        - skilldbs: A dictionary of skill databases.
+        - skilldb: A vector database containing the skills.
         - domains: A set of domains.
         - request: The request object containing the request parameters.
         """
         self.embedding = embedding
         self.reranker = reranker
-        self.skill_taxonomy = request.skill_taxonomy
-        self.skilldb = skilldbs[self.skill_taxonomy]
+        self.taxonomies = request.taxonomies
+        self.skilldb = skilldb
         self.domains = domains
         self.doc = request.doc
         self.los = request.los
@@ -52,7 +58,7 @@ class SkillRetriever:
         # Initialize the used_models list
         self.used_models = []
 
-    async def predict(self, target="learning_outcomes") -> tuple:
+    async def predict(self, target="learning_outcomes", get_sources=False) -> tuple:
         """
         Predicts the top-k skills based on the learning outcomes.
 
@@ -116,8 +122,87 @@ class SkillRetriever:
                 if prediction.score > self.score_cutoff
             ]
 
-        # Return predictions.
+        if get_sources:
+            source_doc = learningoutcomes
+            if self.doc and len(self.doc) > 0:
+                source_doc = self.doc
+
+            # Get source ngrams for predictions.
+            predictions = self.get_source_ngrams(predictions, source_doc)
+
         return self.los, predictions[: self.top_k]
+
+    def get_source_ngrams(self, predictions: list, source_doc: str) -> list:
+        # Calculate 5-grams once and store them in the dictionary.
+        self.ngrams = self.get_ngrams(source_doc, 8)
+
+        for prediction in predictions:
+            prediction_embedding = self.embedding.embed_documents([prediction.title])[0]
+            best_ngram = self.get_best_ngram(prediction_embedding)
+            if best_ngram:
+                prediction.source = best_ngram
+
+        return predictions
+
+    def get_best_ngram(self, doc_embedding: list) -> str:
+        max_similarity = -1
+        best_ngram = None
+        current_ngrams = self.ngrams
+
+        while True:
+            more_similar_found = False
+            for ngram in current_ngrams:
+                # Get the embedding of the current ngram.
+                ngram_embedding = ngram["embedding"]
+                similarity = cosine_similarity([doc_embedding], [ngram_embedding])[0][0]
+                if similarity > max_similarity:
+                    max_similarity = similarity
+                    best_ngram = ngram
+                    more_similar_found = True
+
+            # If no more similar ngram was found, or the best ngram is a single word, or there are no subngrams that are more similar, break the loop.
+            if (
+                not more_similar_found
+                or len(best_ngram["ngram"].split()) == 1
+                or len(best_ngram["subngrams"]) == 0
+            ):
+                break
+
+            # If the best ngram is a single word, or there are no subngrams that are more similar, break the loop.
+            if (
+                len(best_ngram["ngram"].split()) == 1
+                or len(best_ngram["subngrams"]) == 0
+            ):
+                break
+
+            # Otherwise, update the current ngrams to the subngrams of the best ngram and continue the loop.
+            current_ngrams = best_ngram["subngrams"]
+            if len(current_ngrams) == 0:
+                # Cache generated subngrams in self.ngram
+                best_ngram["subngrams"] = self.get_ngrams(
+                    best_ngram["ngram"], len(best_ngram["ngram"].split()) - 1
+                )
+                current_ngrams = best_ngram["subngrams"]
+
+        return best_ngram["ngram"]
+
+    def get_ngrams(self, document: str, n: int) -> list:
+        ngrams = []
+        lines = document.split("\n")
+        for line in lines:
+            words = line.split()
+            for i in range(len(words)):
+                for j in range(i + 1, min(i + n + 1, len(words) + 1)):
+                    ngram = " ".join(words[i:j])
+                    ngrams.append(ngram)
+
+        # Create a dictionary with ngrams as keys and their embeddings as values and an empty list of subngrams.
+        ngram_embeddings = self.embedding.embed_documents(ngrams)
+        ngrams = [
+            {"ngram": ngram, "embedding": embedding, "subngrams": []}
+            for ngram, embedding in zip(ngrams, ngram_embeddings)
+        ]
+        return ngrams
 
     def filter_domain(self, predictions: list, learning_outcomes: str) -> list:
         """
@@ -312,6 +397,16 @@ class SkillRetriever:
         return learningoutcomes
 
     def cluster_documents(self, documents: List[str]) -> List[List[str]]:
+        """
+        Clusters a list of documents based on their similarity.
+
+        Args:
+            documents (List[str]): A list of documents to be clustered.
+
+        Returns:
+            List[List[str]]: A list of clusters, where each cluster is a list of documents.
+
+        """
         # If there are less than two documents, skip the clustering.
         if len(documents) < 2:
             return [documents]
@@ -346,10 +441,67 @@ class SkillRetriever:
         # Create subsets of documents based on their cluster assignments.
         clusters = []
         for cluster_id in range(optimal_n_clusters):
-            cluster = [doc for doc, label in zip(documents, labels) if label == cluster_id]
+            cluster = [
+                doc for doc, label in zip(documents, labels) if label == cluster_id
+            ]
             clusters.append(cluster)
 
         return clusters
+
+    def get_title_predictions(self, learning_outcomes: list) -> list:
+        """
+        Retrieves title predictions based on learning outcomes.
+
+        Args:
+            learning_outcomes (list): A list of learning outcomes.
+
+        Returns:
+            list: A list of title predictions.
+
+        """
+        title = ""
+        # Check for patterns like "Titel: Bergführer\n", "Kurstitel: Bergführer\n", "Course title: Bergführer\n"
+        match = re.match(
+            r"^(Titel|Kurstitel|Course title|Course Title|Course Name|Kursname|Kursname|Kursname):*\s*(.*\b) *(\n|Kursbeschreibung|Beschreibung|Description)",
+            self.doc,
+        )
+        if match:
+            title = match.group(2).strip()
+            # Split the title at the first special vahracter like - or ( and other special characters and remove trailing whitespaces.
+            title = re.split(r"[^a-zA-Z0-9äöüÄÖÜß\s]+", title)[0].strip()
+        # If no match, check if the document starts with a single word followed by line breaks
+        else:
+            match = re.match(r"^(\b)\n+", self.doc)
+
+            if match:
+                title = match.group(1).strip()
+
+        if not title:
+            return []
+
+        document = "\n".join(learning_outcomes)
+
+        # Do similarity search for the title.
+        if self.taxonomies and len(self.taxonomies) > 0:
+            filter = {"taxonomy": {"$in": self.taxonomies}}
+        else:
+            filter = None
+        top_docs = self.skilldb.similarity_search_with_relevance_scores(
+            document,
+            min(self.top_k, 20),
+            filter=filter,
+            where_document={"$contains": title},
+        )
+
+        candidates = [self.create_prediction(skill) for skill in top_docs]
+
+        # Filter out predictions that are already known or duplicates or not part of the filterconcepts.
+        candidates = self.filter_predictions(candidates, sort=True)
+
+        if self.do_rerank:
+            candidates = self.rerank(candidates, document)
+
+        return candidates
 
     def get_top_similar_skills(self, learning_outcomes: list) -> list:
         """
@@ -361,37 +513,50 @@ class SkillRetriever:
         Returns:
             list: A list of top similar skills.
         """
-        # Escape early if there are no learning outcomes.
-        if len(learning_outcomes) == 0:
-            return []
 
         similar_skills = []
 
-        clusters = self.cluster_documents(learning_outcomes)
+        if self.doc and len(self.doc) > 0:
+            # Get title predictions based on the document.
+            title_predictions = self.get_title_predictions(learning_outcomes)
+            similar_skills.extend(title_predictions)
 
-        # Do similarity search for each cluster.
-        self.add_model_stats(
-            "pascalhuerten/instructor-skillfit",
-            "Embed learning outcomes for similarity search against skill database.",
-        )
-        for cluster in clusters:
-            similar_cluster_skills = (
-                self.skilldb.similarity_search_with_relevance_scores(
-                    "\n".join(cluster), min(self.top_k, 20) + len(self.validated_skills)
-                )
+        # Escape early if there are no learning outcomes.
+        if len(learning_outcomes) > 0:
+
+            clusters = self.cluster_documents(learning_outcomes)
+
+            # Do similarity search for each cluster.
+            self.add_model_stats(
+                "pascalhuerten/instructor-skillfit",
+                "Embed learning outcomes for similarity search against skill database.",
             )
-            # Convert skill documents to predictions.
-            predictions = [
-                self.create_prediction(skill) for skill in similar_cluster_skills
-            ]
+            if self.taxonomies and len(self.taxonomies) > 0:
+                filter = {"taxonomy": {"$in": self.taxonomies}}
+            else:
+                filter = None
+            for cluster in clusters:
+                cluster_doc = "\n".join(cluster)
+                similar_cluster_skills = (
+                    self.skilldb.similarity_search_with_relevance_scores(
+                        cluster_doc,  # Query
+                        min(self.top_k, 20)
+                        + len(self.validated_skills),  # Number of results
+                        filter=filter,  # Filter metadata
+                    )
+                )
+                # Convert skill documents to predictions.
+                predictions = [
+                    self.create_prediction(skill) for skill in similar_cluster_skills
+                ]
 
-            # Filter out predictions that are already known or duplicates or not part of the filterconcepts.
-            predictions = self.filter_predictions(predictions, sort=True)
+                # Filter out predictions that are already known or duplicates or not part of the filterconcepts.
+                predictions = self.filter_predictions(predictions, sort=True)
 
-            if self.do_rerank:
-                predictions = self.rerank(predictions, "\n".join(cluster))
+                if self.do_rerank:
+                    predictions = self.rerank(predictions, cluster_doc)
 
-            similar_skills.extend(predictions)
+                similar_skills.extend(predictions)
 
         # Filter out predictions that are already known or duplicates or not part of the filterconcepts.
         similar_skills = self.filter_predictions(similar_skills, sort=True)
@@ -639,7 +804,7 @@ class SkillRetriever:
         if self.target == "prerequisites":
             return True
         # Broader concepts are only available for ESCO skills. If the skill is not an ESCO skill, return True.
-        if len(self.filterconcepts) == 0 or "ESCO" not in self.skill_taxonomy:
+        if len(self.filterconcepts) == 0 or "ESCO" not in skill.taxonomy:
             return True
 
         # Check if the skill is part of a concept that is part of the filterconcepts.
@@ -662,9 +827,9 @@ class SkillRetriever:
         """
 
         # Create prediction object based on the skill taxonomy.
-        if self.skill_taxonomy == "ESCO":
+        if skill[0].metadata["taxonomy"] == "ESCO":
             return Prediction.from_esco(skill)
-        elif self.skill_taxonomy == "GRETA":
+        elif skill[0].metadata["taxonomy"] == "GRETA":
             return Prediction.from_greta(skill)
         else:
             return Prediction.from_other(skill)
@@ -743,8 +908,14 @@ class SkillRetriever:
         )
 
         # Do Vector Search to find most similar skills.
+        if self.taxonomies and len(self.taxonomies) > 0:
+            filter = {"taxonomy": {"$in": self.taxonomies}}
+        else:
+            filter = None
         valid_docs = self.skilldb.similarity_search_with_relevance_scores(
-            validSkillLabels, 10
+            validSkillLabels,
+            10,
+            filter=filter,
         )
         # Create predictions for similar skills and filter out the current skill.
         similarToValidSkills = [
@@ -774,8 +945,14 @@ class SkillRetriever:
             [skill.title for skill in self.validated_skills if not skill.valid]
         )
         # Do Vector Search to find most similar skills.
+        if self.taxonomies and len(self.taxonomies) > 0:
+            filter = {"taxonomy": {"$in": self.taxonomies}}
+        else:
+            filter = None
         invalid_docs = self.skilldb.similarity_search_with_relevance_scores(
-            invalidSkillLabels, 10
+            invalidSkillLabels,
+            10,
+            filter=filter
         )
         # Create predictions for similar skills and filter out the current skill.
         similarToInvalidSkills = [
