@@ -18,7 +18,7 @@ class TrainCompLevelRequest(BaseModel):
 def predict_complevel(request: PredictCompLevelRequest):
     model = ComplevelPredictor()
     prediction = model.predict(request.title, request.description)
-    return CompLevelResponse(class_probability=prediction["class_probability"], level=prediction["level"], target_probability=prediction["target_probability"])
+    return LegacyCompLevelResponse(class_probability=prediction["class_probability"], level=prediction["level"], target_probability=prediction["target_probability"])
 
 
 @router.post("/v2/predictCompLevel", response_model=CompLevelResponse, description="Predict the learning outcome competency level of a course.")

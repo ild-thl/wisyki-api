@@ -53,6 +53,7 @@ class LegacyCompLevelResponse(BaseModel):
     def set_target_probability(cls, v, values):
         if values["level"] == "D" or values["level"] == "C":
             v = values["class_probability"][2]
+        return v
 
 
 class ComplevelPredictor():
