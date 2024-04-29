@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from src.routes.main_router import router as main_router
 from src.routes.skill_router import router as skill_router
 from src.routes.complevel_router import router as complevel_router
+from src.routes.profile_router import router as profile_router
 from src.setup import setup
 
 # Initialize app
@@ -22,6 +23,7 @@ app.state.DB = db
 app.include_router(main_router)
 app.include_router(skill_router)
 app.include_router(complevel_router)
+app.include_router(profile_router)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

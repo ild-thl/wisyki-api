@@ -6,7 +6,7 @@ import os
 
 
 def get_thl_model(
-    temperature: float = 0.1, use_most_competent_llm=False
+    temperature: float = 0.1, use_most_competent_llm=False, max_tokens=512
 ) -> Tuple[BaseChatModel, str]:
     """
     Get the THL model for chat-based interaction.
@@ -26,7 +26,7 @@ def get_thl_model(
             openai_api_base=f"https://{model_name}.llm.mylab.th-luebeck.dev/v1",
             openai_api_key="-",
             temperature=temperature,
-            max_tokens=512,  # Embedding models are trained on 512 sequence length, so we use this as a max output length for chat responses.
+            max_tokens=max_tokens,  # Embedding models are trained on 512 sequence length, so we use this as a max output length for chat responses.
             model_kwargs={"seed": 42},
         ),
         model_name,
@@ -34,7 +34,7 @@ def get_thl_model(
 
 
 def get_mistral_model(
-    mistral_api_key: str = None, temperature: float = 0.1, use_most_competent_llm=False
+    mistral_api_key: str = None, temperature: float = 0.1, use_most_competent_llm=False, max_tokens=512
 ) -> Tuple[BaseChatModel, str]:
     """
     Get the Mistral chat model.
@@ -58,14 +58,14 @@ def get_mistral_model(
             mistral_api_key=mistral_api_key,
             temperature=temperature,
             random_seed=42,  # We use a seed of 42 to get reproducible results.
-            max_tokens=512,
+            max_tokens=max_tokens,
         ),
         model_name,
     )
 
 
 def get_openai_model(
-    openai_api_key: str = None, temperature: float = 0.1, use_most_competent_llm=False
+    openai_api_key: str = None, temperature: float = 0.1, use_most_competent_llm=False, max_tokens=512
 ) -> Tuple[BaseChatModel, str]:
     """
     Returns an instance of the ChatOpenAI model and the model name.
@@ -86,7 +86,7 @@ def get_openai_model(
             model=model_name,
             openai_api_key=openai_api_key,
             temperature=temperature,
-            max_tokens=512,
+            max_tokens=max_tokens,
             model_kwargs={"seed": 42},
         ),
         model_name,
@@ -98,6 +98,7 @@ def get_llm(
     mistral_api_key: str = None,
     temperature: float = 0.1,
     use_most_competent_llm=False,
+    max_tokens=512,
 ) -> Tuple[BaseChatModel, str]:
     """
     Retrieves the appropriate language model for chat responses.
@@ -114,20 +115,20 @@ def get_llm(
 
     if mistral_api_key:
         model, model_name = get_mistral_model(
-            mistral_api_key, temperature, use_most_competent_llm
+            mistral_api_key, temperature, use_most_competent_llm, max_tokens
         )
-        fallback, fallback_name = get_thl_model(temperature, use_most_competent_llm)
+        fallback, fallback_name = get_thl_model(temperature, use_most_competent_llm, max_tokens)
         return model.with_fallbacks([fallback]), model_name
     if openai_api_key:
         model, model_name = get_openai_model(
-            openai_api_key, temperature, use_most_competent_llm
+            openai_api_key, temperature, use_most_competent_llm, max_tokens
         )
-        fallback, fallback_name = get_thl_model(temperature, use_most_competent_llm)
+        fallback, fallback_name = get_thl_model(temperature, use_most_competent_llm, max_tokens)
         return model.with_fallbacks([fallback]), model_name
 
-    model, model_name = get_thl_model(temperature, use_most_competent_llm)
+    model, model_name = get_thl_model(temperature, use_most_competent_llm, max_tokens)
     if os.getenv("MISTRAL_API_KEY"):
-        fallback, fallback_name = get_mistral_model(temperature, use_most_competent_llm)
+        fallback, fallback_name = get_mistral_model(temperature, use_most_competent_llm, max_tokens)
         return model.with_fallbacks([fallback]), model_name
 
     return model, model_name
