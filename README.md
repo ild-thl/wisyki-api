@@ -14,13 +14,13 @@ In addition to the above models, the WISYKI-API also uses other models via their
 
 For learning outcome extraction, one of the following models is used:
 
-1. Mixtral-8x7B (hosted in SH by THL)
+1. Llama 3 8B (hosted in SH by myLab@THL)
 2. mistral-small (API key required)
 3. gpt-3.5-turbo-1106 (API key required)
 
 For more challenging tasks like validation, one of the following models is used:
 
-1. Mixtral-8x7B (hosted in SH by THL)
+1. Mixtral-8x7B (hosted in SH by myLab@THL)
 2. mistral-large (API key required)
 3. gpt-4-0125-preview (API key required)
 

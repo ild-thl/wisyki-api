@@ -97,7 +97,7 @@ async def extract_skill_profile(doc: str, mistral_api_key: str = None, openai_ap
     )
 
     parser = JsonOutputParser(pydantic_object=SkillProfile)
-    model, model_name = get_llm(openai_api_key=openai_api_key, mistral_api_key=mistral_api_key, use_most_competent_llm=True, max_tokens=2048)
+    model, model_name = get_llm(openai_api_key=openai_api_key, mistral_api_key=mistral_api_key, use_most_competent_llm=False, max_tokens=2048)
     prompt = PromptTemplate(
         template=template,
         input_variables=["doc"],

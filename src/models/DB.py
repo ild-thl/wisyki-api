@@ -126,7 +126,7 @@ class DB:
             """
             SELECT d.text, s.id, ds.valid, s.name, s.taxonomy 
             FROM courses d, skills s, course_skills ds 
-            WHERE d.id = ds.course_id AND s.id = ds.skill_id AND d.id = ?
+            WHERE d.id = ds.course_id AND s.id = ds.skill_id AND d.id = %s
             """,
             (course_id,)
         )

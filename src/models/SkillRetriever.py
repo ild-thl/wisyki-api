@@ -325,7 +325,7 @@ class SkillRetriever:
                 "Folgendes Bildungsdokument liegt vor:"
                 "{course}"
                 ""
-                "Liste die explizit genannten Voraussetzungen oder benötigte Vorerfahrungen auf, jeweils in einer neuen Zeile."
+                "Liste die im vorrangegangenen Text explizit genannten Voraussetzungen oder benötigten Vorerfahrungen auf, jeweils in einer neuen Zeile."
                 "Nutze kurze, einfache Sprache und BLOOM-Verben für Fähigkeiten, Nomen für Wissen."
                 "Bennene nicht was nicht benötigt wird, sondern nur was benötigt wird."
                 "Wenn keine Vorraussetzungen benannt werden, antworte mit 'Keine Voraussetzungen benannt'."
@@ -372,14 +372,15 @@ class SkillRetriever:
                 "Folgendes Bildungsdokument liegt vor:"
                 "{course}"
                 ""
-                "Liste die explizit genannten Lernziele auf, jeweils in einer neuen Zeile."
+                "Liste die im vorhergegangenen Text explizit genannten Lernziele auf, jeweils in einer neuen Zeile."
                 "Nutze kurze, einfache Sprache und BLOOM-Verben für Fähigkeiten, Nomen für Wissen."
                 "Wenn keine Lernziele benannt werden, antworte mit 'Keine Lernziele benannt'."
+                "Der Kontext des Kurses sollte in der Bennneung der einzelnen Lernziele deutlich werden."
                 ""
                 "Folgende Kompetenzen und Lernziele beschreiben das Dokument am Besten:"
             ),
         ]
-
+        
         learningoutcomes, used_model = await self.get_chatresponse(
             messages, {"course": doc[:3500]}, use_most_competent_llm=False
         )
@@ -492,7 +493,7 @@ class SkillRetriever:
             filter=filter,
             where_document={"$contains": title},
         )
-
+        
         candidates = [self.create_prediction(skill) for skill in top_docs]
 
         # Filter out predictions that are already known or duplicates or not part of the filterconcepts.

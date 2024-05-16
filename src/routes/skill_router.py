@@ -7,6 +7,8 @@ from openai import AuthenticationError
 from ..models.SkillRetriever import SkillRetriever
 from ..models.ComplevelPredictor import ComplevelPredictor, CompLevelResponse
 from ..models.KeywordExtractor import KeywordExtractor
+from ..models.LearningOpportunityExtractor import extract_learning_opportunity
+import json
 
 
 class BaseSkill(BaseModel):
@@ -104,6 +106,10 @@ class SkillRetrieverRequest(BaseModel):
     mistral_api_key: Optional[str] = Field(
         default=None,
         description="An API key for Mistral. If use_llm or llm_validation is true, this key enables usage of propriatary Mistral models.",
+    )
+    finetuned: bool = Field(
+        default=True,
+        description="Whether to use a fine-tuned model for skill retrieval.",
     )
 
     # Ensure that either doc or los is provided.
@@ -231,7 +237,7 @@ class CourseSkill(BaseModel):
 
 
 class GetCourseSkillsResponse(BaseModel):
-    id: int = Field(..., description="The ID of the course.")
+    id: str = Field(..., description="The ID of the course.")
     doc: str = Field(
         ...,
         description="The document representing the source of the validated skill predictions.",
@@ -314,11 +320,31 @@ async def chatsearch(
     if request.skillfit_validation:
         request.rerank = True
 
-    embedding_function = embedding_functions["instructor-skillfit"]
+    if not request.finetuned:
+        request.rerank = False
+
+    embedding_function = embedding_functions["instructor-skillfit" if request.finetuned else "instructor-large"]
     embedding_function.query_instruction = (
         "Represent the learning outcome for retrieving relevant skills: "
     )
     embedding_function.embed_instruction = "Represent the skill for retrieval: "
+
+    # if request.use_llm and (len(request.los) <= 0 or len(request.prerequisites) <= 0):
+    #     try:
+    #         learning_opportunity = await extract_learning_opportunity(
+    #             request.doc, request.mistral_api_key, request.openai_api_key
+    #         )
+    #         print("Extracted learning opportunity data.", learning_opportunity)
+    #         if len(request.los) <= 0:
+    #             request.los = learning_opportunity["learning_outcomes"]
+    #         if len(request.prerequisites) <= 0:
+    #             request.prerequisites = learning_opportunity["prerequisites"]
+    #         request.doc = json.dumps(learning_opportunity)
+    #     except requests.Timeout:
+    #         raise HTTPException(status_code=408, detail="Request timed out.")
+    #     except AuthenticationError:
+    #         raise HTTPException(status_code=401, detail="Invalid API key.")
+
 
     predictor = SkillRetriever(
         embedding_function,
@@ -414,12 +440,31 @@ async def chatsearch_v2(
     skilldb=Depends(get_skilldb),
     domains=Depends(get_domains),
 ):
+    if not request.finetuned:
+        request.rerank = False
+
     # Set the query and embed instructions for the embedding function
-    embedding_function = embedding_functions["instructor-skillfit"]
+    embedding_function = embedding_functions["instructor-skillfit" if request.finetuned else "instructor-large"]
     embedding_function.query_instruction = (
         "Represent the learning outcome for retrieving relevant skills: "
     )
     embedding_function.embed_instruction = "Represent the skill for retrieval: "
+    
+    # if request.use_llm and (len(request.los) <= 0 or len(request.prerequisites) <= 0):
+    #     try:
+    #         learning_opportunity = await extract_learning_opportunity(
+    #             request.doc, request.mistral_api_key, request.openai_api_key
+    #         )
+    #         print("Extracted learning opportunity data.", learning_opportunity)
+    #         if len(request.los) <= 0:
+    #             request.los = learning_opportunity["learning_outcomes"]
+    #         if len(request.prerequisites) <= 0:
+    #             request.prerequisites = learning_opportunity["prerequisites"]
+    #         request.doc = json.dumps(learning_opportunity)
+    #     except requests.Timeout:
+    #         raise HTTPException(status_code=408, detail="Request timed out.")
+    #     except AuthenticationError:
+    #         raise HTTPException(status_code=401, detail="Invalid API key.")
 
     # Create a SkillRetriever object
     predictor = SkillRetriever(
@@ -603,13 +648,13 @@ def get_course_skills(
 
     return GetCourseSkillsResponse(
         id=course_id,
-        doc=skills[0].text,
+        doc=skills[0][0],
         skills=[
             CourseSkill(
-                id=skill.id,
-                title=skill.title,
-                taxonomy=skill.taxonomy,
-                valid=skill.valid,
+                id=skill[1],
+                title=skill[3],
+                taxonomy=skill[4],
+                valid=skill[2],
             )
             for skill in skills
         ],

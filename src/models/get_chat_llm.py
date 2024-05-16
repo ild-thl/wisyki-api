@@ -5,7 +5,7 @@ from langchain_core.language_models import BaseChatModel
 import os
 
 
-def get_thl_model(
+def get_default_llm(
     temperature: float = 0.1, use_most_competent_llm=False, max_tokens=512
 ) -> Tuple[BaseChatModel, str]:
     """
@@ -19,11 +19,12 @@ def get_thl_model(
         Tuple[BaseChatModel, str]: A tuple containing the THL chat model and the model name.
 
     """
-    model_name = "mixtral-8x7b"
+    api_base = os.getenv("LARGE_CUSTOM_LLM_URL") if use_most_competent_llm else os.getenv("DEFAULT_CUSTOM_LLM_URL")
+    model_name = "custom-llm-large" if use_most_competent_llm else "custom-llm-default"
     return (
         ChatOpenAI(
-            model="mixtral-8x7b",
-            openai_api_base=f"https://{model_name}.llm.mylab.th-luebeck.dev/v1",
+            model=model_name,
+            openai_api_base=api_base,
             openai_api_key="-",
             temperature=temperature,
             max_tokens=max_tokens,  # Embedding models are trained on 512 sequence length, so we use this as a max output length for chat responses.
@@ -117,16 +118,16 @@ def get_llm(
         model, model_name = get_mistral_model(
             mistral_api_key, temperature, use_most_competent_llm, max_tokens
         )
-        fallback, fallback_name = get_thl_model(temperature, use_most_competent_llm, max_tokens)
+        fallback, fallback_name = get_default_llm(temperature, use_most_competent_llm, max_tokens)
         return model.with_fallbacks([fallback]), model_name
     if openai_api_key:
         model, model_name = get_openai_model(
             openai_api_key, temperature, use_most_competent_llm, max_tokens
         )
-        fallback, fallback_name = get_thl_model(temperature, use_most_competent_llm, max_tokens)
+        fallback, fallback_name = get_default_llm(temperature, use_most_competent_llm, max_tokens)
         return model.with_fallbacks([fallback]), model_name
 
-    model, model_name = get_thl_model(temperature, use_most_competent_llm, max_tokens)
+    model, model_name = get_default_llm(temperature, use_most_competent_llm, max_tokens)
     if os.getenv("MISTRAL_API_KEY"):
         fallback, fallback_name = get_mistral_model(temperature, use_most_competent_llm, max_tokens)
         return model.with_fallbacks([fallback]), model_name
