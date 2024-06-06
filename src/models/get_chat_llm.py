@@ -80,7 +80,7 @@ def get_openai_model(
         Tuple[BaseChatModel, str]: A tuple containing the ChatOpenAI model instance and the model name.
     """
     model_name = (
-        "gpt-4-0125-preview" if use_most_competent_llm else "gpt-3.5-turbo-1106"
+        "gpt-4o" if use_most_competent_llm else "gpt-3.5-turbo-0125"
     )
     return (
         ChatOpenAI(

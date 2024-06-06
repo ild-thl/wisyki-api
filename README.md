@@ -22,7 +22,7 @@ For more challenging tasks like validation, one of the following models is used:
 
 1. Mixtral-8x7B (hosted in SH by myLab@THL)
 2. mistral-large (API key required)
-3. gpt-4-0125-preview (API key required)
+3. gpt-4o (API key required)
 
 Please note that some of these models require an API key for access.
 
