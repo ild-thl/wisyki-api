@@ -41,7 +41,7 @@ class SkillRequest(BaseSkill):
 class SkillRetrieverRequest(BaseModel):
     taxonomies: List[str] = Field(
         default=["ESCO"],
-        description="The target taxonomies for skill predictions. Can be one or many of 'ESCO', 'DKZ', 'GRETA'.",
+        description="The target taxonomies for skill predictions. Can be one or many of 'ESCO', 'DKZ', 'GRETA', 'DigCompEdu, 'DigCompESCO'.",
     )
     targets: List[str] = Field(
         default=["learning_outcomes"],
@@ -144,7 +144,7 @@ class SkillRetrieverRequest(BaseModel):
 class LegacySkillRetrieverRequest(SkillRetrieverRequest):
     skill_taxonomy: str = Field(
         default="ESCO",
-        description="The target taxonomy for skill predictions. Can be one of 'ESCO', 'DKZ', 'GRETA'.",
+        description="The target taxonomy for skill predictions. Can be one of 'ESCO', 'DKZ', 'GRETA', 'DigCompEdu', 'DigCompESCO'.",
     )
     trusted_score: float = Field(
         default=0.2,
@@ -428,7 +428,7 @@ Functionality:
 - By default the THL provides open access to the Large Language Model Mixtral8x7b hosted in SH. Still we recommend to use your own API key to ensure availability and not overuse public resources.
 - Uses a combination of specifically fine-tuned bi-encoder and cross-encoder models for best performance on the task of learning outcome based skill retrieval.
 - Retrieves the most relevant skills from a vector store of standardized skills.
-- Supported skill taxonomies includeESCO, DKZ, and GRETA.
+- Supported skill taxonomies includeESCO, DKZ, GRETA, DigCompESCO and DigCompEdu.
 - Results can be further filtered by given ESCO concepts.
 - Different options for faster or more elaborate valodaton. Try out different settings to find whar best suits your domain and use case.
 

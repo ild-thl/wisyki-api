@@ -79,6 +79,29 @@ class SkillPrediction:
         )
 
     @classmethod
+    def from_digcompedu(self, skill):
+        """
+        Creates a SkillPrediction instance from a DigCompEdu skill.
+
+        Args:
+            skill (tuple): The DigCompEdu skill data.
+
+        Returns:
+            SkillPrediction: The SkillPrediction instance.
+        """
+        return self(
+            title=skill[0].metadata["title"],
+            uri=skill[0].metadata["title"],
+            score=skill[1],
+            taxonomy=skill[0].metadata["taxonomy"],
+            metadata={
+                "description": skill[0].metadata["description"],
+                "activities": skill[0].metadata["activities"],
+                "area": skill[0].metadata["area"],
+            },
+        )
+
+    @classmethod
     def from_other(self, skill):
         """
         Creates a SkillPrediction instance from another source.

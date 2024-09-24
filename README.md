@@ -88,6 +88,12 @@ The following environment variables are required:
     docker-compose up -d
     ```
 
+    or run for local development
+
+    ```bash
+    docker compose -f docker-compose.dev.yml up -d
+    ```
+
 ## API Documentation
 
 For more details on how to use the API, please refer to the [API Documentation](https://ai-isy.th-luebeck.de/competence-analyser/redoc).

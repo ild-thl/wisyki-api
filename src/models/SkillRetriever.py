@@ -838,8 +838,12 @@ class SkillRetriever:
         # Create prediction object based on the skill taxonomy.
         if skill[0].metadata["taxonomy"] == "ESCO":
             return Prediction.from_esco(skill)
+        elif skill[0].metadata["taxonomy"] == "DigCompESCO":
+            return Prediction.from_esco(skill)
         elif skill[0].metadata["taxonomy"] == "GRETA":
             return Prediction.from_greta(skill)
+        elif skill[0].metadata["taxonomy"] == "DigCompEdu":
+            return Prediction.from_digcompedu(skill)
         else:
             return Prediction.from_other(skill)
 
