@@ -1,6 +1,6 @@
 # WISYKI-API
 
-The WISYKI-API is a tool developed as part of the [WISY@KI project](https://www.wisyki.de/) that provides capabilities to predict [ESCOv1.2.0](https://esco.ec.europa.eu/), [GRETAv2](https://www.greta-die.de/webpages/greta-interaktiv), and DKZ Skills based on given course descriptions or learning outcomes. Predictions include learning outcomes, prerequisites, keywords and competency levels.
+The WISYKI-API is a tool developed as part of the [WISY@KI project](https://www.wisyki.de/) that provides capabilities to predict [ESCOv1.2.0](https://esco.ec.europa.eu/), [GRETAv2](https://www.greta-die.de/webpages/greta-interaktiv), DKZ, DigComp 2.2 (ESCO) and DigCompEdu skills based on given course descriptions or learning outcomes. Predictions include learning outcomes, prerequisites, keywords and competency levels.
 
 The application leverages two fine-tuned models:
 
@@ -29,7 +29,7 @@ Please note that some of these models require an API key for access.
 
 ## Features
 
-* Predict ESCOv1.2.0, GRETAv2, and DKZ Skills based on course descriptions or learning outcomes.
+* Predict ESCOv1.2.0, GRETAv2, DKZ, DigComp 2.2 (ESCO) and DigCompEdu Skills based on course descriptions or learning outcomes.
 * Predict competency levels.
 * Create embeddings.
 * Provide validated training data.
