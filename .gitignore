@@ -1,9 +1,12 @@
 **/__pycache__/
 venv/
 .env*
+!.env.example
 data/logs/
 data/training/
 data/stores/
 data/models/comp_level_model/comp-level_ai-model.pickle
 data/models/comp_level_model/synthetic-comp-levels.json
 data/models/comp_level_model/validated-comp-levels.json
+data/models/multilingual-e5-base-course-skill-tuned
+data/models/instructor-large

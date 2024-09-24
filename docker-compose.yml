@@ -36,6 +36,8 @@ services:
     restart: always
     env_file:
       - .env
+    volumes:
+      - ./data/models:/code/data/models
     ports:
       - "${HOST_PORT}:7680"
     depends_on:

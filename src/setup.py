@@ -11,12 +11,12 @@ import os
 def load_embedding_functions():
     return {
         "instructor-large": HuggingFaceInstructEmbeddings(
-            model_name="hkunlp/instructor-large",
+            model_name="./data/models/instructor-large",
             query_instruction="",
             embed_instruction="",
         ),
         "multilingual_e5_finetuned": HuggingFaceBgeEmbeddings(
-            model_name="isy-thl/multilingual-e5-base-course-skill-tuned",
+            model_name="./data/models/multilingual-e5-base-course-skill-tuned",
             query_instruction="query: ",
             embed_instruction="passage: "
         ),

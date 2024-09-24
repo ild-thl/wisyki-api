@@ -11,7 +11,6 @@ chromadb==0.5.3
 pandas==2.2.2
 openai==1.35.10
 keybert==0.8.5
-nltk==3.8.1
 scikit-learn==1.5.1
 psycopg2==2.9.9
 transformers==4.42.3

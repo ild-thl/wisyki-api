@@ -68,17 +68,25 @@ The following environment variables are required:
     cd wisyki-api
     ```
 
-3. Run the Docker compose command:
+3. Download required models:
+
+    ```bash
+    git clone https://huggingface.co/isy-thl/multilingual-e5-base-course-skill-tuned data/models/multilingual-e5-base-course-skill-tuned
+    git clone https://huggingface.co/hkunlp/instructor-large data/models/instructor-large
+    git clone https://huggingface.co/isy-thl/wisyki-complevel-classifier data/models/comp_level_model 
+    ```
+
+4. Copy and setup enviroment variables:
+
+    ```bash
+    cp .env.example .env
+    ```
+
+5. Run the Docker compose command:
 
     ```bash
     docker-compose up -d
     ```
-
-Alternatively, you can pull the Docker image from Docker Hub:
-
-```bash
-docker pull pascalhuerten/comp-ai-api:latest
-```
 
 ## API Documentation
 

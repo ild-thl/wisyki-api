@@ -5,16 +5,17 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.pipeline import make_pipeline
-import nltk
-from nltk.corpus import stopwords
-
-nltk.download("stopwords")
 from sklearn.metrics import classification_report
 from datetime import datetime
 import time
 import pickle
 import json
 import os
+
+# read stopwords from './data/domains/stopwords_de.txt'
+file = open("./data/domains/stopwords_de.txt", "r")
+stopwords = file.read().split("\n")
+file.close()
 
 ## 1000 p.C Evaluation
 ## Train:
@@ -55,10 +56,20 @@ class ComplevelModelTrainer:
             "./data/models/comp_level_model/synthetic-comp-levels.json",
             orient="records",
         )
+        # Convert Labels with value "D" to "C"
+        train_data["label"] = train_data["label"].replace("D", "C")
+        # Remove duplicates by column 'id'
+        train_data = train_data.drop_duplicates(subset="id")
+        
         val_data = pd.read_json(
             "./data/models/comp_level_model/validated-comp-levels.json",
             orient="records",
         )
+        # Convert Labels with value "D" to "C"
+        val_data["label"] = val_data["label"].replace("D", "C")
+        # Remove duplicates by column 'id'
+        val_data = val_data.drop_duplicates(subset="id")
+        
         # add val_data to train_data
         # Get class with the least number of samples
         min_samples = train_data["label"].value_counts().min()
@@ -88,7 +99,7 @@ class ComplevelModelTrainer:
                 max_df=0.125, ngram_range=(1, 3), stop_words=stopwords.words("german")
             ),
             OneVsRestClassifier(
-                MultinomialNB(fit_prior=True, class_prior=None, alpha=0.001)
+                MultinomialNB(fit_prior=True, class_prior=None, alpha=0.01)
             ),
         )
 
