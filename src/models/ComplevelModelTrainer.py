@@ -96,7 +96,7 @@ class ComplevelModelTrainer:
         # Create a model based on Multinominal Naive Bayes.
         model = make_pipeline(
             TfidfVectorizer(
-                max_df=0.125, ngram_range=(1, 3), stop_words=stopwords.words("german")
+                max_df=0.125, ngram_range=(1, 3), stop_words=stopwords
             ),
             OneVsRestClassifier(
                 MultinomialNB(fit_prior=True, class_prior=None, alpha=0.01)

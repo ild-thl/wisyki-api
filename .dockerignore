@@ -2,7 +2,7 @@
 .dockerignore
 .env*
 .python-version
-venv
-data/models
-data/training
+venv/
+data/models/
+data/training/
 **/__pycache__/*
