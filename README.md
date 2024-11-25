@@ -76,13 +76,21 @@ The following environment variables are required:
     git clone https://huggingface.co/isy-thl/wisyki-complevel-classifier data/models/comp_level_model 
     ```
 
-4. Copy and setup enviroment variables:
+4. Download the vectorstore:
+
+   Download the skill vectorstore archive from the [release page](https://github.com/ild-thl/wisyki-api/releases/tag/skills-vectordatabase-241125).
+
+5. Extract the vectorstore to the correct location:
+
+   Unzip the downloaded file into a directory at `data/stores/skill_vectorstore`.
+
+6. Copy and setup enviroment variables:
 
     ```bash
     cp .env.example .env
     ```
 
-5. Run the Docker compose command:
+7. Run the Docker compose command:
 
     ```bash
     docker-compose up -d
