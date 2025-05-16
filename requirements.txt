@@ -9,7 +9,7 @@ sentence-transformers==3.0.1
 FlagEmbedding==1.2.10
 chromadb==0.5.3
 pandas==2.2.2
-openai==1.35.10
+openai==1.78.1
 keybert==0.8.5
 scikit-learn==1.5.1
 psycopg2==2.9.9
