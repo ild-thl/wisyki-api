@@ -20,7 +20,7 @@ def get_default_llm(
 
     """
     api_base = os.getenv("LARGE_CUSTOM_LLM_URL") if use_most_competent_llm else os.getenv("DEFAULT_CUSTOM_LLM_URL")
-    model_name = "custom-llm-large" if use_most_competent_llm else "custom-llm-default"
+    model_name = "chat-default" if use_most_competent_llm else "chat-large"
     return (
         ChatOpenAI(
             model=model_name,
@@ -80,7 +80,7 @@ def get_openai_model(
         Tuple[BaseChatModel, str]: A tuple containing the ChatOpenAI model instance and the model name.
     """
     model_name = (
-        "gpt-4o" if use_most_competent_llm else "gpt-3.5-turbo-0125"
+        "gpt-4o" if use_most_competent_llm else "gpt-4o-mini"
     )
     return (
         ChatOpenAI(
