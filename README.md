@@ -102,6 +102,26 @@ The following environment variables are required:
     docker compose -f docker-compose.dev.yml up -d
     ```
 
+## Docker Image Build
+
+The official Docker image for the WISYKI-API is available for amd64 and arm64 architectures. To build the Docker image for both architectures, Docker Buildx was used.
+
+Creating a new builder instance and setting it as the active one is necessary for building multi-platform images.
+
+```bash
+docker buildx create --name mybuilder --use
+docker buildx inspect --bootstrap
+```
+
+After setting up the builder, the Docker image can be built and pushed to the Docker Hub repository using the following command:
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 -t pascalhuerten/comp-ai-api:latest --push .
+```
+
+This command builds the Docker image for both `linux/amd64` and `linux/arm64` platforms and pushes it to the Docker Hub repository `pascalhuerten/comp-ai-api`.
+Make sure to replace `pascalhuerten/comp-ai-api` with your own Docker Hub repository name if you want to push it to your own repository.
+
 ## API Documentation
 
 For more details on how to use the API, please refer to the [API Documentation](https://ai-isy.th-luebeck.de/competence-analyser/redoc).
