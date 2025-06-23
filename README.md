@@ -69,6 +69,7 @@ The following environment variables are required:
     ```
 
 3. Download required models:
+   Install git LFS (Large File Storage) if you haven't already. You can find instructions on how to install [git LFS](https://git-lfs.github.com/).
 
     ```bash
     git clone https://huggingface.co/isy-thl/multilingual-e5-base-course-skill-tuned data/models/multilingual-e5-base-course-skill-tuned
@@ -124,7 +125,7 @@ Make sure to replace `pascalhuerten/comp-ai-api` with your own Docker Hub reposi
 
 ## API Documentation
 
-For more details on how to use the API, please refer to the [API Documentation](https://ai-isy.th-luebeck.de/competence-analyser/redoc).
+For more details on how to use the API, please refer to the [API Documentation](https://lab.dlc.sh/competence-analyser/redoc).
 
 ## Acknowledgements
 
