@@ -10,3 +10,4 @@ data/models/comp_level_model/synthetic-comp-levels.json
 data/models/comp_level_model/validated-comp-levels.json
 data/models/multilingual-e5-base-course-skill-tuned
 data/models/instructor-large
+hf_cache/

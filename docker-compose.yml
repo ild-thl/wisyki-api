@@ -38,6 +38,7 @@ services:
       - .env
     volumes:
       - ./data/models:/code/data/models
+      - ./hf_cache:/root/.cache/huggingface
     ports:
       - "${HOST_PORT}:7680"
     depends_on:
