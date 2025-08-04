@@ -9,6 +9,10 @@ from ..models.ComplevelPredictor import ComplevelPredictor, CompLevelResponse
 from ..models.KeywordExtractor import KeywordExtractor
 from ..models.LearningOpportunityExtractor import extract_learning_opportunity
 import json
+from fastapi import Body
+import logging
+
+logger = logging.getLogger("uvicorn.info")
 
 
 class BaseSkill(BaseModel):
@@ -725,3 +729,45 @@ def embed_documents(
     embedding_function = embedding_functions[request.model]
     embedding_function.embed_instruction = request.embed_instruction
     return embedding_function.embed_documents(request.docs)
+
+
+class RerankRequest(BaseModel):
+    kompetenzen: List[str]
+    kurse: List[Dict[str, str]]  # [{"title": ..., "description": ...}, ...]
+
+class RerankResponse(BaseModel):
+    sorted_courses: List[Tuple[str, float]]
+
+@router.post(
+    "/rerank_courses",
+    response_model=RerankResponse,
+    description="Rerank courses for given competencies using the cross-encoder reranker."
+)
+def rerank_courses(
+    request: RerankRequest,
+    reranker=Depends(get_reranker)
+):
+    pairs = []
+    for kompetenz in request.kompetenzen:
+        for kurs in request.kurse:
+            coursedata = kurs['title'] + " " + kurs['description']
+            pairs.append((kompetenz, coursedata))
+
+    logger.info(f"pairs to rerank: created")  
+    # Nutze das bereits geladene Reranker-Modell
+    scores = reranker.compute_score(pairs)
+    logger.info(f"pairs to rerank: computed scores")
+
+    # Finde den besten Score für jeden Kurs
+    course_scores = {}
+    pair_index = 0
+    for kompetenz in request.kompetenzen:
+        for kurs in request.kurse:
+            score = scores[pair_index]
+            pair_index += 1
+            if kurs['title'] not in course_scores or score > course_scores[kurs['title']]:
+                course_scores[kurs['title']] = score
+    logger.info(f"sort courses by scores")
+    sorted_courses = sorted(course_scores.items(), key=lambda item: item[1], reverse=True)
+    logger.info(f"sorted courses")
+    return RerankResponse(sorted_courses=sorted_courses)
