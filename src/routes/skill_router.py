@@ -9,7 +9,6 @@ from ..models.ComplevelPredictor import ComplevelPredictor, CompLevelResponse
 from ..models.KeywordExtractor import KeywordExtractor
 from ..models.LearningOpportunityExtractor import extract_learning_opportunity
 import json
-from fastapi import Body
 import logging
 
 logger = logging.getLogger("uvicorn.info")
@@ -731,43 +730,93 @@ def embed_documents(
     return embedding_function.embed_documents(request.docs)
 
 
+# Rerank courses based on search terms using a cross-encoder reranker.
+class RerankCourse(BaseModel):
+    id: str = Field(..., description="Unique course id")
+    title: str = Field(..., description="Course title")
+    description: Optional[str] = Field("", description="Course description (optional)")
+
 class RerankRequest(BaseModel):
-    kompetenzen: List[str]
-    kurse: List[Dict[str, str]]  # [{"title": ..., "description": ...}, ...]
+    searchterms: List[str]
+    courses: List[RerankCourse]
 
 class RerankResponse(BaseModel):
-    sorted_courses: List[Tuple[str, float]]
+    # (course_id, title, score)
+    sorted_courses: List[Tuple[str, str, float]]
+
 
 @router.post(
     "/rerank_courses",
     response_model=RerankResponse,
-    description="Rerank courses for given competencies using the cross-encoder reranker."
+    description="Rerank courses for given searchterm using the cross-encoder reranker."
 )
 def rerank_courses(
     request: RerankRequest,
     reranker=Depends(get_reranker)
 ):
-    pairs = []
-    for kompetenz in request.kompetenzen:
-        for kurs in request.kurse:
-            coursedata = kurs['title'] + " " + kurs['description']
-            pairs.append((kompetenz, coursedata))
+    # validate course attributes
+    invalid_courses = []
+    normalized_courses = []
+    for idx, course in enumerate(request.courses):
+        if not isinstance(course.id, str) or not course.id.strip():
+            invalid_courses.append({"index": idx, "reason": "missing or empty id"})
+            continue
+        if not isinstance(course.title, str) or not course.title.strip():
+            invalid_courses.append({"index": idx, "reason": "missing or empty title"})
+            continue
 
-    logger.info(f"pairs to rerank: created")  
-    # Nutze das bereits geladene Reranker-Modell
-    scores = reranker.compute_score(pairs)
-    logger.info(f"pairs to rerank: computed scores")
+        description = course.description or ""
+        normalized_courses.append(
+            {"id": course.id.strip(), "title": course.title.strip(), "description": description}
+        )
 
-    # Finde den besten Score für jeden Kurs
+    if invalid_courses:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "Invalid course entries in request",
+                "invalid_courses": invalid_courses,
+            },
+        )
+
+    # Build model pairs and keep meta mapping by course id
+    model_pairs = []
+    meta = []  # list of {"id": ..., "title": ...} in same order as model_pairs
+    for searchterm in request.searchterms:
+        for course in normalized_courses:
+            coursedata = course["title"] + (" " + course["description"] if course["description"] else "")
+            model_pairs.append((searchterm, coursedata))
+            meta.append({"id": course["id"], "title": course["title"]})
+
+    logger.info("pairs to rerank: created")
+    try:
+        scores = reranker.compute_score(model_pairs)
+    except Exception as e:
+        logger.exception("reranker.compute_score failed")
+        raise HTTPException(status_code=500, detail="Reranker error")
+
+    # Check if scores are a list/tuple and has the same length as model_pairs
+    if not isinstance(scores, (list, tuple)) or len(scores) != len(model_pairs):
+        raise HTTPException(status_code=500, detail="Reranker returned unexpected scores (length/type mismatch).")
+
+    # Process scores and build course scores
     course_scores = {}
-    pair_index = 0
-    for kompetenz in request.kompetenzen:
-        for kurs in request.kurse:
-            score = scores[pair_index]
-            pair_index += 1
-            if kurs['title'] not in course_scores or score > course_scores[kurs['title']]:
-                course_scores[kurs['title']] = score
-    logger.info(f"sort courses by scores")
-    sorted_courses = sorted(course_scores.items(), key=lambda item: item[1], reverse=True)
-    logger.info(f"sorted courses")
+    id_to_title = {}
+    for i, raw_score in enumerate(scores):
+        try:
+            score = float(raw_score)
+        except Exception:
+            raise HTTPException(status_code=500, detail=f"Reranker returned non-numeric score at index {i}.")
+
+        cid = meta[i]["id"]
+        id_to_title[cid] = meta[i]["title"]
+        if cid not in course_scores or score > course_scores[cid]:
+            course_scores[cid] = score
+
+    logger.info("sort courses by scores")
+    sorted_courses = [
+        (cid, id_to_title.get(cid, ""), score)
+        for cid, score in sorted(course_scores.items(), key=lambda item: item[1], reverse=True)
+    ]
+    logger.info("sorted courses")
     return RerankResponse(sorted_courses=sorted_courses)
