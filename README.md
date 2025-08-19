@@ -127,6 +127,60 @@ Make sure to replace `pascalhuerten/comp-ai-api` with your own Docker Hub reposi
 
 For more details on how to use the API, please refer to the [API Documentation](https://lab.dlc.sh/competence-analyser/redoc).
 
+### Rerank Courses endpoint
+
+POST /rerank_courses
+
+This endpoint re-ranks a set of courses for one or more search terms using the configured cross-encoder reranker.
+
+Request
+* Content-Type: application/json
+* Body schema (RerankRequest)
+  * searchterms: array of strings — one or more search terms to evaluate.
+  * courses: array of objects (RerankCourse)
+    * id (string) — unique course id (required, non-empty).
+    * title (string) — course title (required, non-empty).
+    * description (string) — optional course description.
+
+Behavior
+* Validates each course entry: id and title must be non-empty strings. If any invalid entries are found, the endpoint returns 400 with details about the invalid entries.
+* Builds model pairs (searchterm, coursedata) where coursedata = title + optional description.
+* Calls the reranker via the dependency configured in app state (see get_reranker in [src/routes/skill_router.py](src/routes/skill_router.py)). The reranker must implement compute_score(model_pairs) and return a list/tuple of numeric scores with the same length/order as model_pairs.
+* Aggregates scores by course id, keeping the maximum score per course across all searchterms.
+* Sorts courses descending by score and returns the sorted list.
+
+Response
+* JSON object (RerankResponse):
+  * sorted_courses: array of tuples [course_id, title, score]
+    * course_id: string
+    * title: string
+    * score: float (higher is better; ordering is descending)
+
+Example request
+```json
+{
+    "searchterm": ["python datenanalyse"],
+    "kurse": [
+      {"id": "c1", "title": "Einführung in Python", "description": "Grundlagen"},
+      {"id": "c2", "title": "Data Science mit Python", "description": "Pandas"},
+      {"id": "c3", "title": "Statistik Basics", "description": "Wahrscheinlichkeit"}
+    ]
+}
+```
+Example response
+```json
+{
+    "sorted_courses":[
+        ["c3","Statistik Basics",0.1265108287334442],
+        ["c2","Data Science mit Python",-3.6975388526916504],
+        ["c1","Einführung in Python",-7.353256702423096]
+    ]
+}
+```
+Notes
+* The endpoint uses the configured reranker dependency from the application state. Ensure your reranker implements compute_score(model_pairs) and returns numeric scores in the same order as the provided model_pairs.
+
+
 ## Acknowledgements
 
 This service uses the ESCO classification of the European Commission.
