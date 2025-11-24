@@ -125,7 +125,7 @@ Make sure to replace `pascalhuerten/comp-ai-api` with your own Docker Hub reposi
 
 ## API Documentation
 
-For more details on how to use the API, please refer to the [API Documentation](https://lab.dlc.sh/competence-analyser/redoc).
+For more details on how to use the API, please refer to the [API Documentation](https://lab.dlc.sh/competence-analyser/docs).
 
 ## Acknowledgements
 
