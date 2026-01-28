@@ -59,6 +59,10 @@ class SkillRetriever:
         # Initialize the used_models list
         self.used_models = []
 
+        # Set do_rerank to False if reranker is None
+        if self.reranker is None:
+            self.do_rerank = False
+
     async def predict(self, target="learning_outcomes", get_sources=False) -> tuple:
         """
         Predicts the top-k skills based on the learning outcomes.
@@ -77,7 +81,10 @@ class SkillRetriever:
             return self.los, []
 
         # Embed the learning outcomes.
-        embedded_doc = self.embedding.embed_documents([learningoutcomes])
+        try:
+            embedded_doc = self.embedding.embed_documents([learningoutcomes])
+        except Exception as e:
+            print("Error embedding document:", learningoutcomes, e)
 
         # Do similarity search for skills.
         predictions = self.get_top_similar_skills(self.los)
@@ -105,10 +112,10 @@ class SkillRetriever:
 
         # Some scores might have become negative due to penalties. Normalize scores.
         if len(predictions) > 0:
-        #     min_score = predictions[-1].score
-        #     if min_score < 0:
-        #         for prediction in predictions:
-        #             prediction.score -= min_score
+            #     min_score = predictions[-1].score
+            #     if min_score < 0:
+            #         for prediction in predictions:
+            #             prediction.score -= min_score
 
             max_score = predictions[0].score
             if max_score > 1:
@@ -748,7 +755,7 @@ class SkillRetriever:
             score = max(min(score, max_score), -max_score)
             score = (score + max_score) / (max_score * 2)
             prediction.score = score
-            
+
             prediction.fit = fit
 
             # If strict mode is enabled, only keep predictions that are validated.
@@ -867,25 +874,31 @@ class SkillRetriever:
                 return predictions
 
             # Calculate gaps and their indices after the last identified gap
-            gaps_with_indices = [(predictions[i].score - predictions[i + 1].score, i) 
-                                for i in range(last_gap_index, len(predictions) - 1)]
+            gaps_with_indices = [
+                (predictions[i].score - predictions[i + 1].score, i)
+                for i in range(last_gap_index, len(predictions) - 1)
+            ]
 
             # Find the largest gap after the last identified gap
-            largest_gap = max(gaps_with_indices, key=lambda x: x[0], default=(None, None))
+            largest_gap = max(
+                gaps_with_indices, key=lambda x: x[0], default=(None, None)
+            )
 
             # Check if largest_gap[1] is None, which means no more gaps were found
             if largest_gap[1] is None:
                 # Return all predictions if no more gaps are found
                 return predictions
-            
+
             if n == 1:
                 # If this is the first largest gap or no more gaps, return predictions up to this gap
-                print(len(predictions[:largest_gap[1] + 1]))
-                return predictions[:largest_gap[1] + 1]
+                print(len(predictions[: largest_gap[1] + 1]))
+                return predictions[: largest_gap[1] + 1]
 
             # For finding subsequent gaps, update the last_gap_index to the index of the current largest gap
             # and recursively call the function to find the next largest gap
-            return get_predictions_up_to_nth_largest_gap(predictions, n-1, largest_gap[1] + 1)
+            return get_predictions_up_to_nth_largest_gap(
+                predictions, n - 1, largest_gap[1] + 1
+            )
 
         # Apply thresholding based on strictness level
         if self.strict == 3:
@@ -894,7 +907,6 @@ class SkillRetriever:
             predictions = get_predictions_up_to_nth_largest_gap(predictions, 2)
         elif self.strict == 1:
             predictions = get_predictions_up_to_nth_largest_gap(predictions, 3)
-
 
         return predictions
 

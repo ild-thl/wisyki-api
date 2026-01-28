@@ -7,7 +7,7 @@ langchain-mistralai==0.1.9
 langchain-openai==0.1.14
 sentence-transformers==3.0.1
 FlagEmbedding==1.2.10
-chromadb==0.5.3
+chromadb==0.6.2
 pandas==2.2.2
 openai==1.78.1
 keybert==0.8.5
@@ -15,5 +15,3 @@ scikit-learn==1.5.1
 psycopg2==2.9.9
 transformers==4.42.3
 sentencepiece==0.2.0
-# InstructorEmbedding
-git+https://github.com/pascalhuerten/instructor-embedding.git#egg=InstructorEmbedding

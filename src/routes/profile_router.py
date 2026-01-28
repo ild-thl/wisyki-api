@@ -19,8 +19,8 @@ def get_db(req: Request):
     return req.app.state.DB
 
 
-def get_embedding_functions(req: Request):
-    return req.app.state.EMBEDDING_FUNCTIONS
+def get_embedding_function(req: Request):
+    return req.app.state.EMBEDDING_FUNCTION
 
 
 def get_reranker(req: Request):
@@ -148,7 +148,7 @@ class SkillProfile(BaseModel):
 async def post_extract_skill_profile(
     request: ExtractProfileRequest,
     db=Depends(get_db),
-    embedding_functions=Depends(get_embedding_functions),
+    embedding_function=Depends(get_embedding_function),
     reranker=Depends(get_reranker),
     skilldb=Depends(get_skilldb),
     domains=Depends(get_domains),
@@ -221,7 +221,7 @@ class Recommendation(BaseModel):
 async def post_profile_recommendation(
     request: ProfileRecommendationRequest,
     db=Depends(get_db),
-    embedding_functions=Depends(get_embedding_functions),
+    embedding_function=Depends(get_embedding_function),
     reranker=Depends(get_reranker),
     skilldb=Depends(get_skilldb),
     domains=Depends(get_domains),

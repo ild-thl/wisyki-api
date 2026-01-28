@@ -278,8 +278,8 @@ def get_db(req: Request):
     return req.app.state.DB
 
 
-def get_embedding_functions(req: Request):
-    return req.app.state.EMBEDDING_FUNCTIONS
+def get_embedding_function(req: Request):
+    return req.app.state.EMBEDDING_FUNCTION
 
 
 def get_reranker(req: Request):
@@ -329,7 +329,7 @@ async def extract_lo(request: SkillRetrieverRequest):
 async def chatsearch(
     request: LegacySkillRetrieverRequest,
     db=Depends(get_db),
-    embedding_functions=Depends(get_embedding_functions),
+    embedding_function=Depends(get_embedding_function),
     reranker=Depends(get_reranker),
     skilldb=Depends(get_skilldb),
     domains=Depends(get_domains),
@@ -348,7 +348,6 @@ async def chatsearch(
     if not request.finetuned:
         request.rerank = False
 
-    embedding_function = embedding_functions["multilingual_e5_finetuned"]
     embedding_function.query_instruction = "query: "
     embedding_function.embed_instruction = "passage: "
 
@@ -443,7 +442,7 @@ By default, the response includes...
 async def chatsearch_v2(
     request: SkillRetrieverRequest,
     db=Depends(get_db),
-    embedding_functions=Depends(get_embedding_functions),
+    embedding_function=Depends(get_embedding_function),
     reranker=Depends(get_reranker),
     skilldb=Depends(get_skilldb),
     domains=Depends(get_domains),
@@ -452,7 +451,6 @@ async def chatsearch_v2(
         request.rerank = False
 
     # Set the query and embed instructions for the embedding function
-    embedding_function = embedding_functions["multilingual_e5_finetuned"]
     embedding_function.query_instruction = "query: "
     embedding_function.embed_instruction = "passage: "
 
@@ -706,9 +704,8 @@ def get_course_comp_training_data(
 )
 def embed_query(
     request: GetEmbeddingsQueryRequest,
-    embedding_functions=Depends(get_embedding_functions),
+    embedding_function=Depends(get_embedding_function),
 ):
-    embedding_function = embedding_functions[request.model]
     embedding_function.query_instruction = request.query_instruction
     return embedding_function.embed_query(request.query)
 
@@ -720,8 +717,7 @@ def embed_query(
 )
 def embed_documents(
     request: GetEmbeddingsDocumentsRequest,
-    embedding_functions=Depends(get_embedding_functions),
+    embedding_function=Depends(get_embedding_function),
 ):
-    embedding_function = embedding_functions[request.model]
     embedding_function.embed_instruction = request.embed_instruction
     return embedding_function.embed_documents(request.docs)

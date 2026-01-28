@@ -1,33 +1,11 @@
-version: '3.1' # specify docker-compose version
-
-volumes:
-  # Set up with `docker volume create ...`. See docker/README.md for more info.
-  pg_comp_ai_volume:
+# This compose file extends the main dlc docker-compose services
+# It references postgres, pgadmin, and chroma from the main hub/docker-compose.yml
+# To use both compose files together, run:
+# docker-compose -f ../hub/docker-compose.yml -f docker-compose.dev.yml up
 
 services:
-  # Starts up a postgres database
-  postgres:
-    image: postgres:16
-    restart: always
-    volumes:
-      - pg_comp_ai_volume:/var/lib/postgresql/data
-    ports:
-      - "${POSTGRES_PORT}:5432"
-    environment:
-        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-  
-  pgadmin:
-    image: dpage/pgadmin4
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
-    ports:
-      - "${PGADMIN_PORT}:80"
-    depends_on:
-      - postgres
-  
-  # Runs from the latest release
-  comp-ai-api:
+  # Wisyki API service - connects to external postgres, pgadmin, and chroma from dlc compose
+  wisyki-api:
     build:
       context: .
       dockerfile: Dockerfile.dev
@@ -41,3 +19,21 @@ services:
       - "${HOST_PORT}:7680"
     depends_on:
       - postgres
+      - chroma
+    networks:
+      - dlc
+    environment:
+      # External services configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      CHROMA_HOST: chroma
+      CHROMA_PORT: 8000
+      CHROMA_COLLECTION: wisyki-skills
+      # HuggingFace Embedding API
+      HF_EMBEDDING_HOST: "${HF_EMBEDDING_HOST}"
+      HF_EMBEDDING_API_KEY: "${HF_EMBEDDING_API_KEY}"
+
+networks:
+  dlc:
+    name: dlc
+    external: true

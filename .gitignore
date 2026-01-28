@@ -5,6 +5,7 @@ venv/
 data/logs/
 data/training/
 data/stores/
+data/import/
 data/models/comp_level_model/comp-level_ai-model.pickle
 data/models/comp_level_model/synthetic-comp-levels.json
 data/models/comp_level_model/validated-comp-levels.json

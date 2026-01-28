@@ -38,13 +38,17 @@ class DB:
             psycopg2.extensions.connection: The database connection object.
 
         Raises:
-            Exception: If the POSTGRES_PASSWORD environment variable is not set.
+            Exception: If the DB_PASSWORD environment variable is not set.
         """
         # Connect to db
-        if not os.getenv("POSTGRES_PASSWORD"):
-            raise Exception("POSTGRES_PASSWORD not set")
+        if not os.getenv("DB_PASSWORD"):
+            raise Exception("DB_PASSWORD not set")
+        if not os.getenv("DB_USERNAME"):
+            raise Exception("DB_USERNAME not set")
+        if not os.getenv("DB_DATABASE"):
+            raise Exception("DB_DATABASE not set")
         conn = psycopg2.connect(
-            f"postgres://postgres:{os.getenv('POSTGRES_PASSWORD')}@postgres:{os.getenv('POSTGRES_PORT')}/postgres?sslmode=disable"
+            f"postgres://{os.getenv('DB_USERNAME')}:{os.getenv('DB_PASSWORD')}@postgres:{os.getenv('DB_PORT', '5432')}/{os.getenv('DB_DATABASE')}?sslmode=disable"
         )
         return conn
 
