@@ -5,7 +5,12 @@ from typing import Dict, List, Tuple, Optional, Any
 import requests
 from openai import AuthenticationError
 from ..models.SkillRetriever import SkillRetriever
-from ..models.ComplevelPredictor import ComplevelPredictor, CompLevelResponse
+from ..models.CompetencyLevelClassifier import (
+    CompLevelResponse,
+    CompetencyLevelClassificationError,
+    CompetencyLevelClassifier,
+    CompetencyLevelTimeoutError,
+)
 from ..models.KeywordExtractor import KeywordExtractor
 from ..models.LearningOpportunityExtractor import extract_learning_opportunity
 import json
@@ -369,6 +374,14 @@ async def chatsearch(
         raise HTTPException(status_code=408, detail="Request timed out.")
     except AuthenticationError:
         raise HTTPException(status_code=401, detail="Invalid API key.")
+    except CompetencyLevelTimeoutError as error:
+        raise HTTPException(
+            status_code=504, detail="Competency classification timed out."
+        ) from error
+    except CompetencyLevelClassificationError as error:
+        raise HTTPException(
+            status_code=502, detail="Competency classification failed."
+        ) from error
 
     # predicted_skills to Skill objects
     predicted_skills = [
@@ -466,10 +479,17 @@ async def chatsearch_v2(
     )
     # Create a KeywordExtractor object
     extractor = KeywordExtractor(request)
+    competency_classifier = None
 
     learning_outcomes, prerequisites = None, None
 
     try:
+        if "comp_level" in request.targets:
+            competency_classifier = CompetencyLevelClassifier(
+                openai_api_key=request.openai_api_key,
+                mistral_api_key=request.mistral_api_key,
+            )
+
         lo, lo_predictions = None, []
         prereq, prereq_predictions = None, []
 
@@ -482,15 +502,11 @@ async def chatsearch_v2(
 
             complevelresponse = None
             if "comp_level" in request.targets and lo:
-                complevelmodel = ComplevelPredictor()
-                complevelprediction = complevelmodel.predict("", "\n".join(lo))
-                complevelresponse = CompLevelResponse(
-                    class_probability=complevelprediction["class_probability"],
-                    level=complevelprediction["level"],
-                    target_probability=complevelprediction["target_probability"],
+                complevelresponse = await competency_classifier.classify(
+                    description="\n".join(lo), context="learning_outcomes"
                 )
                 predictor.add_model_stats(
-                    "wisy@ki-naive-complevel",
+                    "wisy@ki-llm-complevel",
                     "Predict course learning outcome competence level.",
                 )
 
@@ -501,16 +517,12 @@ async def chatsearch_v2(
             # If no learning outcomes are requested to be predicted, use the provided learning outcomes or document.
             complevelresponse = None
             if "comp_level" in request.targets:
-                complevelmodel = ComplevelPredictor()
                 document = "\n".join(request.los) if request.los else request.doc
-                complevelprediction = complevelmodel.predict("", document)
-                complevelresponse = CompLevelResponse(
-                    class_probability=complevelprediction["class_probability"],
-                    level=complevelprediction["level"],
-                    target_probability=complevelprediction["target_probability"],
+                complevelresponse = await competency_classifier.classify(
+                    description=document, context="learning_outcomes"
                 )
                 predictor.add_model_stats(
-                    "wisy@ki-naive-complevel",
+                    "wisy@ki-llm-complevel",
                     "Predict course learning outcome competence level.",
                 )
 
@@ -527,15 +539,11 @@ async def chatsearch_v2(
 
             complevelresponse = None
             if "comp_level" in request.targets and prereq:
-                complevelmodel = ComplevelPredictor()
-                complevelprediction = complevelmodel.predict("", "\n".join(prereq))
-                complevelresponse = CompLevelResponse(
-                    class_probability=complevelprediction["class_probability"],
-                    level=complevelprediction["level"],
-                    target_probability=complevelprediction["target_probability"],
+                complevelresponse = await competency_classifier.classify(
+                    description="\n".join(prereq), context="prerequisites"
                 )
                 predictor.add_model_stats(
-                    "wisy@ki-naive-complevel",
+                    "wisy@ki-llm-complevel",
                     "Predict course prerequisites competence level.",
                 )
 
@@ -546,16 +554,12 @@ async def chatsearch_v2(
             # If no prerequisites are requested to be predicted, but some are provided, use the provided prerequisites.
             complevelresponse = None
             if "comp_level" in request.targets:
-                complevelmodel = ComplevelPredictor()
                 document = "\n".join(request.prerequisites)
-                complevelprediction = complevelmodel.predict("", document)
-                complevelresponse = CompLevelResponse(
-                    class_probability=complevelprediction["class_probability"],
-                    level=complevelprediction["level"],
-                    target_probability=complevelprediction["target_probability"],
+                complevelresponse = await competency_classifier.classify(
+                    description=document, context="prerequisites"
                 )
                 predictor.add_model_stats(
-                    "wisy@ki-naive-complevel",
+                    "wisy@ki-llm-complevel",
                     "Predict course prerequisites competence level.",
                 )
 
