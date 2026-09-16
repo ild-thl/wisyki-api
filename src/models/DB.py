@@ -2,6 +2,8 @@ import psycopg2
 import os
 import re
 from typing import List, Optional
+
+
 class DB:
     def __init__(self):
         """
@@ -47,8 +49,14 @@ class DB:
             raise Exception("DB_USERNAME not set")
         if not os.getenv("DB_DATABASE"):
             raise Exception("DB_DATABASE not set")
+        db_host = os.getenv("DB_HOST", "postgres")
         conn = psycopg2.connect(
-            f"postgres://{os.getenv('DB_USERNAME')}:{os.getenv('DB_PASSWORD')}@postgres:{os.getenv('DB_PORT', '5432')}/{os.getenv('DB_DATABASE')}?sslmode=disable"
+            host=db_host,
+            port=os.getenv("DB_PORT", "5432"),
+            dbname=os.getenv("DB_DATABASE"),
+            user=os.getenv("DB_USERNAME"),
+            password=os.getenv("DB_PASSWORD"),
+            sslmode="disable",
         )
         return conn
 
@@ -114,7 +122,7 @@ class DB:
                     "UPDATE course_skills SET valid = %s WHERE course_id = %s AND skill_id = %s",
                     (skill["valid"], course_id, skill_id),
                 )
-        
+
         return course_id
 
     def get_course_skills(self, course_id: str) -> list:
@@ -133,12 +141,13 @@ class DB:
             FROM courses d, skills s, course_skills ds 
             WHERE d.id = ds.course_id AND s.id = ds.skill_id AND d.id = %s
             """,
-            (course_id,)
+            (course_id,),
         )
         return self.cursor.fetchall()
-    
 
-    def get_course_comp_training_data(self, skill_taxonomies: Optional[List[str]] = None) -> list:
+    def get_course_comp_training_data(
+        self, skill_taxonomies: Optional[List[str]] = None
+    ) -> list:
         """
         Retrieves training data for the skill retrieval model.
 
@@ -149,14 +158,12 @@ class DB:
             A list of tuples containing the course text, valid skill names, and invalid skill names.
         """
         if skill_taxonomies is None:
-            self.cursor.execute(
-                """
+            self.cursor.execute("""
                 SELECT d.id, d.text, array_agg(s.name) FILTER (WHERE ds.valid = TRUE), array_agg(s.name) FILTER (WHERE ds.valid = FALSE)
                 FROM courses d, skills s, course_skills ds
                 WHERE d.id = ds.course_id AND s.id = ds.skill_id
                 GROUP BY d.id, d.text
-                """
-            )
+                """)
         else:
             self.cursor.execute(
                 """
@@ -165,6 +172,6 @@ class DB:
                 WHERE d.id = ds.course_id AND s.id = ds.skill_id AND s.taxonomy = ANY(%s)
                 GROUP BY d.id, d.text
                 """,
-                (skill_taxonomies,)
+                (skill_taxonomies,),
             )
         return self.cursor.fetchall()
