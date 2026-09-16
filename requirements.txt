@@ -7,4 +7,3 @@ langchain-openai==0.1.14
 chromadb==1.5.5
 psycopg2==2.9.9
 openai==1.78.1
-keybert==0.8.5

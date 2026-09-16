@@ -1,10 +1,53 @@
 from .get_chat_llm import get_llm
+import re
 from typing import List
-from keybert.llm import LangChain
-from keybert import KeyLLM
 from langchain.chains.question_answering import load_qa_chain
+from langchain_core.documents import Document
 
-class KeywordExtractor:    
+
+class LLMKeywordExtractor:
+    def __init__(self, chain, prompt):
+        self.chain = chain
+        self.prompt = prompt
+
+    def extract_keywords(
+        self, document: str, candidate_keywords: List[str]
+    ) -> List[str]:
+        result = self.chain.run(
+            input_documents=[Document(page_content=document)],
+            question=self.prompt,
+        )
+        return clean_keyword_response(result)
+
+
+def clean_keyword_response(response: str) -> List[str]:
+    """Extract only the comma-separated content inside keyword tags."""
+    if not isinstance(response, str) or not response.strip():
+        return []
+
+    tagged_match = re.search(
+        r"<keywords>\s*(.*?)\s*</keywords>", response, flags=re.IGNORECASE | re.DOTALL
+    )
+    if not tagged_match:
+        return []
+
+    content = tagged_match.group(1)
+    keywords = re.split(r"[,;\n]", content)
+
+    cleaned = []
+    seen = set()
+    for keyword in keywords:
+        keyword = re.sub(r"^\s*(?:[-*]|\d+[.)])\s*", "", keyword).strip(" \t\"'")
+        if not keyword:
+            continue
+        normalized = keyword.casefold()
+        if normalized not in seen:
+            seen.add(normalized)
+            cleaned.append(keyword)
+    return cleaned
+
+
+class KeywordExtractor:
     def __init__(self, request):
         """
         Initialize the KeywordExtractor object.
@@ -27,14 +70,13 @@ class KeywordExtractor:
             "Auf Grundlage der obigen Informationen, optimieren Sie bitte die potenziellen Schlüsselwörter, um das Thema des Dokuments bestmöglich zu repräsentieren."
             ""
             "Bitte verwenden Sie das folgende Format und trennen Sie die Schlüsselwörter durch Kommas:"
-            "<keywords>"
+            "<keywords>keyword1, keyword2</keywords>"
         )
-        # Load it in KeyLLM.
-        self.kw_model = KeyLLM(llm=LangChain(chain, prompt=prompt))
-    
+        self.kw_model = LLMKeywordExtractor(chain=chain, prompt=prompt)
+
     def add_model_stats(self, model_name: str, reason: str):
         self.used_models.append({"model": model_name, "reason": reason})
-    
+
     def extract(self, document: str, candidate_keywords: List[str]) -> List[str]:
         """
         Extracts keywords from a document using KeyBERT.
@@ -47,15 +89,11 @@ class KeywordExtractor:
             List[str]: A list of extracted keywords.
         """
         # Create LLM.
-        self.add_model_stats(self.model_name, "Keyword extraction with KeyBERT & KeyLLM")
+        self.add_model_stats(
+            self.model_name, "Keyword extraction with KeyBERT & KeyLLM"
+        )
 
         # Extract keywords.
         keywords = self.kw_model.extract_keywords(document, candidate_keywords)
 
-        if len(keywords) == 1:
-            keywords = keywords[0]
-
-        # if <keywords> or </keywords> in keywords, remove them
-        keywords = [keyword.replace("<keywords>", "").replace("</keywords>", "") for keyword in keywords]
-        
         return keywords
