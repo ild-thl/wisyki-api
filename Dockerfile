@@ -12,4 +12,4 @@ COPY . .
 
 EXPOSE 7680
 
-CMD ["uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "7680", "--root-path", "$ROOT_PATH"]
+CMD ["sh", "-c", "exec uvicorn src.app:app --host 0.0.0.0 --port 7680 --root-path \"${ROOT_PATH:-/}\""]
