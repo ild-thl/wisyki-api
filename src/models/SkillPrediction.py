@@ -86,13 +86,57 @@ class SkillPrediction:
         """
         return self(
             title=skill[0].metadata["title"],
-            uri=skill[0].metadata["title"],
+            uri=skill[0].metadata["uri"],
             score=skill[1],
             taxonomy=skill[0].metadata["taxonomy"],
             metadata={
                 "description": skill[0].metadata["description"],
                 "activities": skill[0].metadata["activities"],
                 "area": skill[0].metadata["area"],
+            },
+        )
+
+    @classmethod
+    def from_digcomp(self, skill):
+        """
+        Creates a SkillPrediction instance from a DigComp skill.
+
+        Args:
+            skill (tuple): The DigComp skill data.
+
+        Returns:
+            SkillPrediction: The SkillPrediction instance.
+        """
+        return self(
+            title=skill[0].metadata["title"],
+            uri=skill[0].metadata["uri"],
+            score=skill[1],
+            taxonomy=skill[0].metadata["taxonomy"],
+            metadata={
+                "description": skill[0].metadata["description"],
+                "area": skill[0].metadata["area"],
+            },
+        )
+
+    @classmethod
+    def from_futureskills2030(self, skill):
+        """
+        Creates a SkillPrediction instance from a FutureSkills2030 skill.
+
+        Args:
+            skill (tuple): The FutureSkills2030 skill data.
+
+        Returns:
+            SkillPrediction: The SkillPrediction instance.
+        """
+        return self(
+            title=skill[0].metadata["title"],
+            uri=skill[0].metadata["uri"],
+            score=skill[1],
+            taxonomy=skill[0].metadata["taxonomy"],
+            metadata={
+                "description": skill[0].metadata["description"],
+                "category": skill[0].metadata["category"],
             },
         )
 

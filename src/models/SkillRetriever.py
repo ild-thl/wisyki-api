@@ -788,6 +788,10 @@ class SkillRetriever:
             return Prediction.from_greta(skill)
         elif skill[0].metadata["taxonomy"] == "DigCompEdu":
             return Prediction.from_digcompedu(skill)
+        elif skill[0].metadata["taxonomy"] == "DigComp":
+            return Prediction.from_digcomp(skill)
+        elif skill[0].metadata["taxonomy"] == "FutureSkills2030":
+            return Prediction.from_futureskills2030(skill)
         else:
             return Prediction.from_other(skill)
 

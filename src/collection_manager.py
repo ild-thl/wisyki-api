@@ -193,6 +193,7 @@ def _populate_collection_from_import(
     force_recompute: bool = False,
     save_embeddings: bool = True,
     batch_size: int = 32,
+    import_dir: Path = Path("data/import"),
 ) -> Tuple[int, int]:
     """
     Populate a Chroma collection with skill documents from JSONL files.
@@ -216,8 +217,6 @@ def _populate_collection_from_import(
     Returns:
         Tuple of (total_added, total_skipped)
     """
-    import_dir = Path("data/import")
-
     if not import_dir.exists():
         print(f"  ℹ Import directory not found: {import_dir}")
         return 0, 0

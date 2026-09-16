@@ -2,7 +2,4 @@
 venv/
 .env*
 !.env.example
-data/logs/
-data/training/
-data/stores/
 data/import/

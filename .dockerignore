@@ -3,6 +3,5 @@
 .env*
 .python-version
 venv/
-data/models/
-data/training/
+data/import/
 **/__pycache__/*
