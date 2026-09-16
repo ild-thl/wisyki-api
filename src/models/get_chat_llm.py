@@ -1,5 +1,4 @@
 from typing import Tuple
-from langchain_mistralai.chat_models import ChatMistralAI
 from langchain_openai import ChatOpenAI
 from langchain_core.language_models import BaseChatModel
 import os
@@ -58,7 +57,8 @@ def get_mistral_model(
     """
     model_name = "mistral-large" if use_most_competent_llm else "mistral-small"
     return (
-        ChatMistralAI(
+        ChatOpenAI(
+            openai_api_base=os.getenv("LLM_API_URL"),
             model=model_name,
             mistral_api_key=mistral_api_key,
             temperature=temperature,
@@ -119,21 +119,29 @@ def get_llm(
         tuple: A tuple containing the language model and its name.
     """
 
-    if not os.getenv("LLM_API_KEY"):
-        raise ValueError("No LLM API key provided in environment variables.")
-
-    default_model, default_model_name = get_default_llm(temperature, use_most_competent_llm, max_tokens)
-
     if mistral_api_key:
         model, model_name = get_mistral_model(
             mistral_api_key, temperature, use_most_competent_llm, max_tokens
         )
-        return model.with_fallbacks([default_model]), model_name
-    
+        if os.getenv("LLM_API_KEY"):
+            default_model, _ = get_default_llm(
+                temperature, use_most_competent_llm, max_tokens
+            )
+            model = model.with_fallbacks([default_model])
+        return model, model_name
+
     if openai_api_key:
         model, model_name = get_openai_model(
             openai_api_key, temperature, use_most_competent_llm, max_tokens
         )
-        return model.with_fallbacks([default_model]), model_name
+        if os.getenv("LLM_API_KEY"):
+            default_model, _ = get_default_llm(
+                temperature, use_most_competent_llm, max_tokens
+            )
+            model = model.with_fallbacks([default_model])
+        return model, model_name
 
-    return default_model, default_model_name
+    if not os.getenv("LLM_API_KEY"):
+        raise ValueError("No LLM API key provided.")
+
+    return get_default_llm(temperature, use_most_competent_llm, max_tokens)

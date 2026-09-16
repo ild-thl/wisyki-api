@@ -92,10 +92,6 @@ class SkillRetrieverRequest(BaseModel):
         default=False,
         description="Whether to validate the skills using a Large Language Model.",
     )
-    rerank: bool = Field(
-        default=False,
-        description="Whether to rerank the retreival results using a Cross-Encoder model.",
-    )
     score_cutoff: float = Field(
         default=1,
         description="The minimum score for a skill to be included in the results.",
@@ -129,20 +125,6 @@ class SkillRetrieverRequest(BaseModel):
     def check_los(cls, v, values):
         if "doc" in values and not values["doc"] and not v:
             raise ValueError('Either "doc" or "los" must be provided')
-        return v
-
-    # Ensure that only one of llm_validation or rerank is true.
-    @validator("llm_validation", pre=True, always=True)
-    def check_llm_validation(cls, v, values):
-        if "rerank" in values and values["rerank"] and v:
-            raise ValueError('Only one of "llm_validation" or "rerank" can be true')
-        return v
-
-    # Ensure that only one of llm_validation or rerank is true.
-    @validator("rerank", pre=True, always=True)
-    def check_rerank(cls, v, values):
-        if "llm_validation" in values and values["llm_validation"] and v:
-            raise ValueError('Only one of "llm_validation" or "rerank" can be true')
         return v
 
 
@@ -252,15 +234,7 @@ class GetCourseSkillsResponse(BaseModel):
     )
 
 
-class BaseEmbeddingRequest(BaseModel):
-    model: str = Field(
-        default="instructor-large",
-        pattern="^(instructor-large|multilingual_e5_finetuned)$",
-        description="The model field can only take the values 'instructor-large' or 'multilingual_e5_finetuned'",
-    )
-
-
-class GetEmbeddingsQueryRequest(BaseEmbeddingRequest):
+class GetEmbeddingsQueryRequest(BaseModel):
     query: str = Field(..., description="The query to embed.")
     query_instruction: str = Field(
         default="query: ",
@@ -268,7 +242,7 @@ class GetEmbeddingsQueryRequest(BaseEmbeddingRequest):
     )
 
 
-class GetEmbeddingsDocumentsRequest(BaseEmbeddingRequest):
+class GetEmbeddingsDocumentsRequest(BaseModel):
     docs: List[str] = Field(..., description="The documents to embed.")
     embed_instruction: str = Field(
         default="passage: ",
@@ -285,10 +259,6 @@ def get_db(req: Request):
 
 def get_embedding_function(req: Request):
     return req.app.state.EMBEDDING_FUNCTION
-
-
-def get_reranker(req: Request):
-    return req.app.state.RERANKER
 
 
 def get_skilldb(req: Request):
@@ -335,7 +305,6 @@ async def chatsearch(
     request: LegacySkillRetrieverRequest,
     db=Depends(get_db),
     embedding_function=Depends(get_embedding_function),
-    reranker=Depends(get_reranker),
     skilldb=Depends(get_skilldb),
     domains=Depends(get_domains),
 ):
@@ -347,12 +316,6 @@ async def chatsearch(
     if request.skill_taxonomy:
         request.taxonomies = [request.skill_taxonomy]
 
-    if request.skillfit_validation:
-        request.rerank = True
-
-    if not request.finetuned:
-        request.rerank = False
-
     embedding_function.query_instruction = "query: "
     embedding_function.embed_instruction = "passage: "
 
@@ -360,7 +323,6 @@ async def chatsearch(
 
     predictor = SkillRetriever(
         embedding_function,
-        reranker,
         skilldb,
         domains,
         request,
@@ -456,13 +418,9 @@ async def chatsearch_v2(
     request: SkillRetrieverRequest,
     db=Depends(get_db),
     embedding_function=Depends(get_embedding_function),
-    reranker=Depends(get_reranker),
     skilldb=Depends(get_skilldb),
     domains=Depends(get_domains),
 ):
-    if not request.finetuned:
-        request.rerank = False
-
     # Set the query and embed instructions for the embedding function
     embedding_function.query_instruction = "query: "
     embedding_function.embed_instruction = "passage: "
@@ -472,7 +430,6 @@ async def chatsearch_v2(
     # Create a SkillRetriever object
     predictor = SkillRetriever(
         embedding_function,
-        reranker,
         skilldb,
         domains,
         request,

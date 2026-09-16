@@ -18,19 +18,17 @@ warnings.filterwarnings("ignore", category=UserWarning, module=vectorstores.__na
 
 
 class SkillRetriever:
-    def __init__(self, embedding, reranker, skilldb, domains, request):
+    def __init__(self, embedding, skilldb, domains, request):
         """
         Initialize the SkillRetriever object.
 
         Parameters:
         - embedding: The embedding model.
-        - reranker: The reranker model.
         - skilldb: A vector database containing the skills.
         - domains: A set of domains.
         - request: The request object containing the request parameters.
         """
         self.embedding = embedding
-        self.reranker = reranker
         self.taxonomies = request.taxonomies
         self.skilldb = skilldb
         self.domains = domains
@@ -49,7 +47,6 @@ class SkillRetriever:
         self.temperature = request.temperature
         self.use_llm = request.use_llm
         self.llm_validation = request.llm_validation
-        self.do_rerank = request.rerank
         self.openai_api_key = request.openai_api_key
         self.mistral_api_key = request.mistral_api_key
         self.score_cutoff = request.score_cutoff
@@ -58,10 +55,6 @@ class SkillRetriever:
 
         # Initialize the used_models list
         self.used_models = []
-
-        # Set do_rerank to False if reranker is None
-        if self.reranker is None:
-            self.do_rerank = False
 
     async def predict(self, target="learning_outcomes", get_sources=False) -> tuple:
         """
@@ -514,9 +507,6 @@ class SkillRetriever:
         # Filter out predictions that are already known or duplicates or not part of the filterconcepts.
         candidates = self.filter_predictions(candidates, sort=True)
 
-        if self.do_rerank:
-            candidates = self.rerank(candidates, document)
-
         return candidates
 
     def get_top_similar_skills(self, learning_outcomes: list) -> list:
@@ -544,7 +534,7 @@ class SkillRetriever:
 
             # Do similarity search for each cluster.
             self.add_model_stats(
-                "pascalhuerten/multilingual-e5-base-course-skill-tuned",
+                "isy-thl/multilingual-e5-base-learning-outcome-skill-tuned",
                 "Embed learning outcomes for similarity search against skill database.",
             )
             if self.taxonomies and len(self.taxonomies) > 0:
@@ -569,21 +559,10 @@ class SkillRetriever:
                 # Filter out predictions that are already known or duplicates or not part of the filterconcepts.
                 predictions = self.filter_predictions(predictions, sort=True)
 
-                if self.do_rerank:
-                    predictions = self.rerank(predictions, cluster_doc)
-
                 similar_skills.extend(predictions)
 
         # Filter out predictions that are already known or duplicates or not part of the filterconcepts.
         similar_skills = self.filter_predictions(similar_skills, sort=True)
-
-        # Rerank the predictions based on all learning outcomes.
-        if self.do_rerank:
-            # similar_skills = self.rerank(similar_skills, "\n".join(learning_outcomes))
-            self.add_model_stats(
-                "pascalhuerten/bge-reranker-base-course-skill-tuned",
-                "Reranking similarity search results based on learning outcomes.",
-            )
 
         return similar_skills
 
@@ -723,48 +702,6 @@ class SkillRetriever:
 
     def add_model_stats(self, model_name: str, reason: str):
         self.used_models.append({"model": model_name, "reason": reason})
-
-    def rerank(self, predictions: list, leraningoutcomes: str) -> list:
-        """
-        Reranks the predictions based on the scores computed using the reranker model.
-
-        Args:
-            predictions (list): List of prediction dictionaries.
-            leraningoutcomes (str): The document to be used for reranking.
-
-        Returns:
-            list: Reranked predictions with updated scores.
-        """
-        if len(predictions) == 0:
-            return predictions
-
-        # Compute scores using the reranker model.
-        pairs = [(leraningoutcomes, prediction.title) for prediction in predictions]
-        scores = self.reranker.compute_score(pairs)
-        # Convert scores to list if necessary.
-        if not isinstance(scores, list):
-            scores = [scores]
-
-        # Reranked predictions with positive scores.
-        validated = []
-        for prediction, score in zip(predictions, scores):
-            # If the score is positive, the prediction is probably relevant/valid.
-            fit = score > 0
-            # Normalize score to be between 0 and 1.
-            max_score = 13.8
-            score = max(min(score, max_score), -max_score)
-            score = (score + max_score) / (max_score * 2)
-            prediction.score = score
-
-            prediction.fit = fit
-
-            # If strict mode is enabled, only keep predictions that are validated.
-            # if self.strict > 0 and not fit:
-            #     continue
-
-            validated.append(prediction)
-
-        return validated
 
     def filter_predictions(self, predictions: list, sort=False) -> list:
         """

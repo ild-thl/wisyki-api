@@ -4,7 +4,6 @@ from pathlib import Path
 from langchain_community.vectorstores import Chroma
 import chromadb
 from chromadb.config import Settings
-from FlagEmbedding import FlagReranker
 from .models.DB import DB
 from .embeddings import load_embedding_function
 from .collection_manager import _populate_collection_from_import
@@ -74,12 +73,6 @@ def load_skilldb(embedding):
     return skilldb
 
 
-def load_reranker():
-    return FlagReranker(
-        "isy-thl/bge-reranker-base-course-skill-tuned", use_fp16=True
-    )  # use fp16 can speed up computing
-
-
 def load_domains():
     """Load domain keywords from files"""
     with open(
@@ -107,13 +100,7 @@ def setup():
     """Initialize all components needed for the API"""
     embedding_function = load_embedding_function()
     skilldb = load_skilldb(embedding_function)
-    if os.getenv("DISABLE_RERANKER", "0") == "1":
-        print("Reranker is disabled via DISABLE_RERANKER environment variable.")
-        reranker = None
-    else:
-        print("Loading reranker...")
-        reranker = load_reranker()
     domains = load_domains()
     db = DB()
 
-    return embedding_function, skilldb, reranker, domains, db
+    return embedding_function, skilldb, domains, db

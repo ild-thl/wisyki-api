@@ -4,7 +4,6 @@ from fastapi import FastAPI
 from src.routes.main_router import router as main_router
 from src.routes.skill_router import router as skill_router
 from src.routes.complevel_router import router as complevel_router
-from src.routes.profile_router import router as profile_router
 from src.routes.admin_router import router as admin_router
 from src.setup import setup
 
@@ -12,12 +11,11 @@ from src.setup import setup
 app = FastAPI()
 
 # Initialize resources
-embedding_function, skilldb, reranker, domains, db = setup()
+embedding_function, skilldb, domains, db = setup()
 
 # Store resources in app's state so they can be accessed in views
 app.state.EMBEDDING_FUNCTION = embedding_function
 app.state.SKILLDB = skilldb
-app.state.RERANKER = reranker
 app.state.DOMAINS = domains
 app.state.DB = db
 
@@ -25,7 +23,6 @@ app.state.DB = db
 app.include_router(main_router)
 app.include_router(skill_router)
 app.include_router(complevel_router)
-app.include_router(profile_router)
 app.include_router(admin_router)
 
 if __name__ == "__main__":

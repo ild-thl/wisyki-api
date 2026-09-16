@@ -6,8 +6,6 @@ The application leverages two fine-tuned models:
 
 1. [Finetuned Embedding Model](https://huggingface.co/isy-thl/multilingual-e5-base-course-skill-tuned): A derivative of the embedding model [intfloat/multilingual-e5-base](https://huggingface.co/intfloat/multilingual-e5-base), this model was optimized to retrieve the most relevant skills from a vectordatabase based on german course descriptions.
 
-2. [Finetuned Reranker](https://huggingface.co/isy-thl/bge-reranker-base-course-skill-tuned): This model, a fine-tuned version of the cross-encoder model [BAAI/bge-reranker-base](https://huggingface.co/BAAI/bge-reranker-base), is employed for the validation and reranking of skill predictions.
-
 The fine-tuning of these models was executed using a diverse set of training data. This data, which includes learning outcomes along with positive and negative labels representing ESCO and GRETA skills, was sourced from the INVITE projects GRETA, MYEdULife, and WISY@KI. Additionally, synthetic data, generated through the LLM validation model (mistral-medium) available in this API, was incorporated into the training process to enhance diversity, especially considering the scarcity of human-validated training data.
 While earlier versions used synthetic training data to increase diversity, the update models were trained on human validated data exclusively.
 
@@ -74,7 +72,6 @@ The following environment variables are required:
     ```bash
     git clone https://huggingface.co/isy-thl/multilingual-e5-base-course-skill-tuned data/models/multilingual-e5-base-course-skill-tuned
     git clone https://huggingface.co/hkunlp/instructor-large data/models/instructor-large
-    git clone https://huggingface.co/isy-thl/wisyki-complevel-classifier data/models/comp_level_model 
     ```
 
 4. Download the vectorstore:

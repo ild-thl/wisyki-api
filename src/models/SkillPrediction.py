@@ -17,6 +17,7 @@ class SkillPrediction:
         fit (bool, optional): Indicates if the skill prediction is a good fit. Defaults to True.
         metadata (dict, optional): Additional metadata for the skill prediction. Defaults to None.
     """
+
     uri: str
     title: str
     score: float
@@ -38,17 +39,11 @@ class SkillPrediction:
             SkillPrediction: The SkillPrediction instance.
         """
         return self(
-            uri=skill[0].metadata["conceptUri"],
-            title=skill[0].metadata["preferredLabel"],
+            uri=skill[0].metadata["uri"],
+            title=skill[0].metadata["title"],
             score=skill[1],
             taxonomy=skill[0].metadata["taxonomy"],
             metadata={
-                "broaderConcepts": [
-                    concept["uri"]
-                    for concept in json.loads(skill[0].metadata["broaderHierarchyConcepts"])
-                ]
-                if skill[0].metadata["broaderHierarchyConcepts"]
-                else [],
                 "description": skill[0].page_content,
             },
         )
