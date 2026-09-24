@@ -26,6 +26,7 @@ async def predict_complevel(request: PredictCompLevelRequest):
             title=request.title,
             description=request.description,
             context="course",
+            classification_mode=request.classification_mode,
         )
     except CompetencyLevelTimeoutError as error:
         logger.exception("Competency classification request timed out")
