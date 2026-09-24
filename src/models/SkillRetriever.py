@@ -869,36 +869,37 @@ class SkillRetriever:
             [skill.title for skill in self.validated_skills if skill.valid]
         )
 
-        # Do Vector Search to find most similar skills.
-        if self.taxonomies and len(self.taxonomies) > 0:
-            filter = {"taxonomy": {"$in": self.taxonomies}}
-        else:
-            filter = None
-        valid_docs = self.skilldb.similarity_search_with_relevance_scores(
-            validSkillLabels,
-            10,
-            filter=filter,
-        )
-        # Create predictions for similar skills and filter out the current skill.
-        similarToValidSkills = [
-            self.create_prediction(valid_doc)
-            for valid_doc in valid_docs
-            if valid_doc[0] not in validSkillUris
-        ]
-        similarToValidSkills = self.filter_predictions(similarToValidSkills)
+        if validSkillLabels:
+            # Do Vector Search to find most similar skills.
+            if self.taxonomies and len(self.taxonomies) > 0:
+                filter = {"taxonomy": {"$in": self.taxonomies}}
+            else:
+                filter = None
+            valid_docs = self.skilldb.similarity_search_with_relevance_scores(
+                validSkillLabels,
+                10,
+                filter=filter,
+            )
+            # Create predictions for similar skills and filter out the current skill.
+            similarToValidSkills = [
+                self.create_prediction(valid_doc)
+                for valid_doc in valid_docs
+                if valid_doc[0] not in validSkillUris
+            ]
+            similarToValidSkills = self.filter_predictions(similarToValidSkills)
 
-        # Add skills that are similar to valid skills and reward them with a higher score.
-        for similarValidSkill in similarToValidSkills:
-            found = False
-            for prediction in predictions:
-                if prediction.uri == similarValidSkill.uri:
-                    penalty = ((similarValidSkill.score) ** 4) * 0.3
-                    prediction.penalty += penalty
-                    prediction.score += penalty
-                    found = True
-                    break
-            if not found:
-                predictions.append(similarValidSkill)
+            # Add skills that are similar to valid skills and reward them with a higher score.
+            for similarValidSkill in similarToValidSkills:
+                found = False
+                for prediction in predictions:
+                    if prediction.uri == similarValidSkill.uri:
+                        penalty = ((similarValidSkill.score) ** 4) * 0.3
+                        prediction.penalty += penalty
+                        prediction.score += penalty
+                        found = True
+                        break
+                if not found:
+                    predictions.append(similarValidSkill)
 
         invalidSkillUris = [
             skill.uri for skill in self.validated_skills if not skill.valid
@@ -906,29 +907,30 @@ class SkillRetriever:
         invalidSkillLabels = "\n".join(
             [skill.title for skill in self.validated_skills if not skill.valid]
         )
-        # Do Vector Search to find most similar skills.
-        if self.taxonomies and len(self.taxonomies) > 0:
-            filter = {"taxonomy": {"$in": self.taxonomies}}
-        else:
-            filter = None
-        invalid_docs = self.skilldb.similarity_search_with_relevance_scores(
-            invalidSkillLabels, 10, filter=filter
-        )
-        # Create predictions for similar skills and filter out the current skill.
-        similarToInvalidSkills = [
-            self.create_prediction(invalid_doc)
-            for invalid_doc in invalid_docs
-            if invalid_doc[0] not in invalidSkillUris
-        ]
-        similarToInvalidSkills = self.filter_predictions(similarToInvalidSkills)
-        # Penalty for predictions that are similar to invalid skills.
-        for similarInvalidSkill in similarToInvalidSkills:
-            for prediction in predictions:
-                if prediction.uri == similarInvalidSkill.uri:
-                    # The lower the score, the higher the penalty.
-                    penalty = -((similarInvalidSkill.score) ** 4) * 0.5
-                    prediction.penalty += penalty
-                    prediction.score += penalty
-                    break
+        if invalidSkillLabels:
+            # Do Vector Search to find most similar skills.
+            if self.taxonomies and len(self.taxonomies) > 0:
+                filter = {"taxonomy": {"$in": self.taxonomies}}
+            else:
+                filter = None
+            invalid_docs = self.skilldb.similarity_search_with_relevance_scores(
+                invalidSkillLabels, 10, filter=filter
+            )
+            # Create predictions for similar skills and filter out the current skill.
+            similarToInvalidSkills = [
+                self.create_prediction(invalid_doc)
+                for invalid_doc in invalid_docs
+                if invalid_doc[0] not in invalidSkillUris
+            ]
+            similarToInvalidSkills = self.filter_predictions(similarToInvalidSkills)
+            # Penalty for predictions that are similar to invalid skills.
+            for similarInvalidSkill in similarToInvalidSkills:
+                for prediction in predictions:
+                    if prediction.uri == similarInvalidSkill.uri:
+                        # The lower the score, the higher the penalty.
+                        penalty = -((similarInvalidSkill.score) ** 4) * 0.5
+                        prediction.penalty += penalty
+                        prediction.score += penalty
+                        break
 
         return self.filter_predictions(predictions)
