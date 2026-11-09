@@ -2,28 +2,13 @@
 
 The WISYKI-API is a tool developed as part of the [WISY@KI project](https://www.wisyki.de/) that provides capabilities to predict [ESCOv1.2.0](https://esco.ec.europa.eu/), [GRETAv2](https://www.greta-die.de/webpages/greta-interaktiv), DKZ, DigComp 2.2 (ESCO) and DigCompEdu skills based on given course descriptions or learning outcomes. Predictions include learning outcomes, prerequisites, keywords and competency levels.
 
-The application leverages two fine-tuned models:
+The application relies on a set of external services rather than providing them itself, which keeps the memory footprint small and improves maintainability:
 
-1. [Finetuned Embedding Model](https://huggingface.co/isy-thl/multilingual-e5-base-course-skill-tuned): A derivative of the embedding model [intfloat/multilingual-e5-base](https://huggingface.co/intfloat/multilingual-e5-base), this model was optimized to retrieve the most relevant skills from a vectordatabase based on german course descriptions.
+* **A running Chroma vector database** that stores the skill vectors.
+* **An embedding server** (e.g. a HuggingFace Inference endpoint) that provides the embedding model used to vectorize course descriptions and queries.
+* **An LLM API endpoint** for learning outcome extraction, keyword extraction and LLM validation. The endpoint and model are fully configurable via environment variables, so you can point the API at any OpenAI-compatible LLM service of your choice.
 
-The fine-tuning of these models was executed using a diverse set of training data. This data, which includes learning outcomes along with positive and negative labels representing ESCO and GRETA skills, was sourced from the INVITE projects GRETA, MYEdULife, and WISY@KI. Additionally, synthetic data, generated through the LLM validation model (mistral-medium) available in this API, was incorporated into the training process to enhance diversity, especially considering the scarcity of human-validated training data.
-While earlier versions used synthetic training data to increase diversity, the update models were trained on human validated data exclusively.
-
-In addition to the above models, the WISYKI-API also uses other models via their APIs for learning outcome extraction and LLM validation. Depending on the request, the following models are used:
-
-For learning outcome extraction, one of the following models is used:
-
-1. Llama 3 8B (hosted in SH by myLab@THL)
-2. mistral-small (API key required)
-3. gpt-3.5-turbo-1106 (API key required)
-
-For more challenging tasks like validation, one of the following models is used:
-
-1. Mixtral-8x7B (hosted in SH by myLab@THL)
-2. mistral-large (API key required)
-3. gpt-4o (API key required)
-
-Please note that some of these models require an API key for access.
+The skill data used to populate the Chroma database is provided as JSONL files in the `data/import` directory. These files contain the documents, their metadata and (optionally) precomputed embeddings. On first startup, the API reads these files and populates the configured Chroma collection automatically.
 
 ## Features
 
@@ -40,6 +25,12 @@ To get the API up and running, follow these steps:
 
 You will need to have Docker installed on your machine. If you don't have Docker installed, you can download it from [the official docker website](https://www.docker.com/products/docker-desktop).
 
+You will also need access to the following external services:
+
+* A running **Chroma** vector database.
+* An **embedding server** (e.g. a HuggingFace Inference endpoint) providing the embedding model.
+* An **LLM API endpoint** (OpenAI-compatible) for learning outcome extraction, keyword extraction and validation.
+
 ### Environment Variables
 
 The following environment variables are required:
@@ -47,10 +38,30 @@ The following environment variables are required:
 * `POSTGRES_PASSWORD`: The password for the PostgreSQL database.
 * `PGADMIN_EMAIL`: The email for PgAdmin.
 * `PGADMIN_PASSWORD`: The password for PgAdmin.
-* `HOST_PORT`: The host port.
+* `HOST_PORT`: The host port for the API.
 * `POSTGRES_PORT`: The port for the PostgreSQL database.
 * `PGADMIN_PORT`: The port for PgAdmin.
+* `CHROMA_PORT`: The port for the Chroma server.
+* `HF_TEXT_INF_PORT`: The port for the text-embeddings-inference service.
 * `ROOT_PATH`: This variable is used when the API is running behind a proxy. If the API is served under a subpath, such as `/api/v1`, then `ROOT_PATH` should be set to that subpath (`/api/v1` in this case). If the API is not behind a proxy or is served from the root path, this variable can be left empty.
+
+The following environment variables configure the external services and can be set freely to match your setup:
+
+* `LLM_API_URL`: The base URL of your OpenAI-compatible LLM API endpoint.
+* `LLM_MODEL`: The name of the LLM model to use.
+* `LLM_API_KEY`: The API key for the LLM endpoint.
+* `CHROMA_HOST`: The host of the Chroma server.
+* `CHROMA_PORT`: The port of the Chroma server.
+* `CHROMA_COLLECTION`: The name of the Chroma collection to use.
+* `CHROMA_DATABASE`: The Chroma database to use (defaults to `wisyki`).
+* `CHROMA_TENANT`: The Chroma tenant (defaults to `default_tenant`).
+* `CHROMA_SERVER_AUTHN_CREDENTIALS`: The authentication token for the Chroma server.
+* `CHROMA_SERVER_AUTHN_PROVIDER`: The authentication provider for the Chroma server.
+* `HF_EMBEDDING_HOST`: The URL of the embedding server (e.g. a HuggingFace Inference endpoint).
+* `HF_EMBEDDING_API_KEY`: The API key for the embedding server.
+* `HF_EMBEDDING_MODEL`: The model served by the local text-embeddings-inference service.
+
+The provided `docker-compose.yml` starts all required services itself, including the Chroma vector database and the text-embeddings-inference embedding server. If you already run these services elsewhere, you can point the API at them via the environment variables above instead.
 
 ### Steps
 
@@ -66,29 +77,23 @@ The following environment variables are required:
     cd wisyki-api
     ```
 
-3. Download required models:
-   Install git LFS (Large File Storage) if you haven't already. You can find instructions on how to install [git LFS](https://git-lfs.github.com/).
+3. Download the skill import data:
 
-    ```bash
-    git clone https://huggingface.co/isy-thl/multilingual-e5-base-course-skill-tuned data/models/multilingual-e5-base-course-skill-tuned
-    git clone https://huggingface.co/hkunlp/instructor-large data/models/instructor-large
-    ```
+   Download the skill import data archive from the [release page](https://github.com/ild-thl/wisyki-api/releases).
 
-4. Download the vectorstore:
+4. Extract the import data to the correct location:
 
-   Download the skill vectorstore archive from the [release page](https://github.com/ild-thl/wisyki-api/releases/tag/skills-vectordatabase-241125).
+   Unzip the downloaded file into a directory at `data/import`. The JSONL files in this directory are read on first startup to populate the configured Chroma collection.
 
-5. Extract the vectorstore to the correct location:
-
-   Unzip the downloaded file into a directory at `data/stores/skill_vectorstore`.
-
-6. Copy and setup enviroment variables:
+5. Copy and setup environment variables:
 
     ```bash
     cp .env.example .env
     ```
 
-7. Run the Docker compose command:
+   Then edit `.env` and set the values for your external services (LLM endpoint, Chroma server and embedding server).
+
+6. Run the Docker compose command:
 
     ```bash
     docker-compose up -d
@@ -99,6 +104,8 @@ The following environment variables are required:
     ```bash
     docker compose -f docker-compose.dev.yml up -d
     ```
+
+On first startup, the API connects to the configured Chroma server. If the collection is empty, it populates it from the JSONL files in `data/import`.
 
 ## Docker Image Build
 

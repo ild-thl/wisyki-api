@@ -3,6 +3,8 @@ version: "3.1" # specify docker-compose version
 volumes:
   # Set up with `docker volume create ...`. See docker/README.md for more info.
   pg_comp_ai_volume:
+  chroma_data:
+  hf_text_inf_data:
 
 services:
   # Starts up a postgres database
@@ -26,6 +28,33 @@ services:
     depends_on:
       - postgres
 
+  # Chroma vector database
+  chroma:
+    image: chromadb/chroma:1.5.5
+    restart: unless-stopped
+    ports:
+      - "${CHROMA_PORT}:8000"
+    volumes:
+      - chroma_data:/data
+    environment:
+      - CHROMA_SERVER_AUTHN_CREDENTIALS=${CHROMA_SERVER_AUTHN_CREDENTIALS}
+      - CHROMA_SERVER_AUTHN_PROVIDER=${CHROMA_SERVER_AUTHN_PROVIDER}
+
+  # HuggingFace Text Embeddings Inference service
+  hf-text-inf:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest
+    restart: unless-stopped
+    command:
+      - "--model-id"
+      - "${HF_EMBEDDING_MODEL}"
+      - "--api-key"
+      - "${HF_EMBEDDING_API_KEY}"
+      - "--auto-truncate"
+    ports:
+      - "${HF_TEXT_INF_PORT}:80"
+    volumes:
+      - "hf_text_inf_data:/data"
+
   # Runs from the latest release
   comp-ai-api:
     build:
@@ -42,3 +71,5 @@ services:
       - "${HOST_PORT}:7680"
     depends_on:
       - postgres
+      - chroma
+      - hf-text-inf
