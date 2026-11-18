@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Optional
 import json
+from langchain_core.documents import Document
 
 
 @dataclass
@@ -26,6 +27,18 @@ class SkillPrediction:
     fit: bool = True
     metadata: Optional[dict] = None
     source: Optional[str] = None
+
+    @classmethod
+    def from_document(cls, skill: tuple[Document, float]) -> "SkillPrediction":
+        converters = {
+            "ESCO": cls.from_esco,
+            "DigCompESCO": cls.from_esco,
+            "GRETA": cls.from_greta,
+            "DigCompEdu": cls.from_digcompedu,
+            "DigComp": cls.from_digcomp,
+            "FutureSkills2030": cls.from_futureskills2030,
+        }
+        return converters.get(skill[0].metadata["taxonomy"], cls.from_other)(skill)
 
     @classmethod
     def from_esco(self, skill):

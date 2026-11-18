@@ -3,14 +3,15 @@ import json
 from pathlib import Path
 from langchain_community.vectorstores import Chroma
 import chromadb
+from chromadb.api.models.Collection import Collection
 from chromadb.config import Settings
 from .models.DB import DB
-from .embeddings import load_embedding_function
+from .embeddings import HuggingFaceInferenceEmbeddings, load_embedding_function
 from .collection_manager import _populate_collection_from_import
 
 
-def load_skilldb(embedding):
-    """Load or create the skill vector store from external Chroma server"""
+def connect_skill_collection() -> tuple[chromadb.HttpClient, Collection]:
+    """Connect to the configured Chroma collection without populating its data."""
     chroma_host = os.getenv("CHROMA_HOST", "chroma")
     chroma_port = int(os.getenv("CHROMA_PORT", "8000"))
     chroma_collection = os.getenv("CHROMA_COLLECTION", "wisyki-skills")
@@ -34,6 +35,15 @@ def load_skilldb(embedding):
     collection = client.get_or_create_collection(
         name=chroma_collection, metadata={"hnsw:space": "cosine"}
     )
+    return client, collection
+
+
+def load_skilldb(
+    embedding: HuggingFaceInferenceEmbeddings,
+) -> tuple[Chroma, Collection]:
+    """Load or create the skill vector store from external Chroma server"""
+    client, collection = connect_skill_collection()
+    chroma_collection = collection.name
 
     # Check if collection is empty and populate from import directory if needed
     if collection.count() == 0:
@@ -70,7 +80,7 @@ def load_skilldb(embedding):
             f"⚠ Warning: Collection name mismatch. Expected '{chroma_collection}', got '{skilldb._collection.name}'"
         )
 
-    return skilldb
+    return skilldb, collection
 
 
 def load_domains():
@@ -96,11 +106,11 @@ def load_domains():
     return domains
 
 
-def setup():
+def setup() -> tuple[HuggingFaceInferenceEmbeddings, Chroma, set[str], DB, Collection]:
     """Initialize all components needed for the API"""
     embedding_function = load_embedding_function()
-    skilldb = load_skilldb(embedding_function)
+    skilldb, skill_collection = load_skilldb(embedding_function)
     domains = load_domains()
     db = DB()
 
-    return embedding_function, skilldb, domains, db
+    return embedding_function, skilldb, domains, db, skill_collection

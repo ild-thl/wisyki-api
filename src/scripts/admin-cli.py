@@ -25,10 +25,9 @@ except ImportError:
 def _load_environment() -> None:
     if load_dotenv is None:
         return
-    for filename in (".env", ".env.dev"):
-        environment_file = PROJECT_ROOT / filename
-        if environment_file.exists():
-            load_dotenv(environment_file, override=False)
+    environment_file = PROJECT_ROOT / ".env"
+    if environment_file.exists():
+        load_dotenv(environment_file, override=False)
 
 
 def _chroma_settings():

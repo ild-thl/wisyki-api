@@ -34,6 +34,7 @@ class HuggingFaceInferenceEmbeddings(Embeddings):
             self.model,
             json={"inputs": texts},
             headers=headers,
+            timeout=(5, 30),
         )
         response.raise_for_status()
         result = response.json()

@@ -297,6 +297,11 @@ async def extract_lo(request: SkillRetrieverRequest):
 # Legacy endpoint. Use /v2/chatsearch instead.
 # In this version of the endpoint, the score is 1 - score, and 0 is the best score.
 @router.post(
+    "/v1/skill-recommendations",
+    response_model=SkillRetrieverResponse,
+    summary="Recommend skills (legacy distance-scored response)",
+)
+@router.post(
     "/chatsearch",
     response_model=SkillRetrieverResponse,
     description="Legacy endpoint for compatibility with wisy@ki. Use /v2/chatsearch for more advanced features. In this version of the endpoint, the score is 1 - score, and 0 is the best score.",
@@ -391,6 +396,11 @@ def generate_skill_responses(predictions):
     ]
 
 
+@router.post(
+    "/v2/skill-recommendations",
+    response_model=SkillRetrieverResponseV2,
+    summary="Recommend skills and course annotations",
+)
 @router.post(
     "/v2/chatsearch",
     response_model=SkillRetrieverResponseV2,

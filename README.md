@@ -1,141 +1,67 @@
 # WISYKI-API
 
-The WISYKI-API is a tool developed as part of the [WISY@KI project](https://www.wisyki.de/) that provides capabilities to predict [ESCOv1.2.0](https://esco.ec.europa.eu/), [GRETAv2](https://www.greta-die.de/webpages/greta-interaktiv), DKZ, DigComp 2.2 (ESCO) and DigCompEdu skills based on given course descriptions or learning outcomes. Predictions include learning outcomes, prerequisites, keywords and competency levels.
+Educational institutions create a wide range of courses, qualifications, and digital credentials. Describing what learners can gain from them in a clear, consistent way takes time. WISYKI-API helps institutions enrich this information with suggested learning outcomes, related skills, and summaries that can be reviewed and used in their metadata workflows.
 
-The application relies on a set of external services rather than providing them itself, which keeps the memory footprint small and improves maintainability:
+The recommendations support people responsible for learning catalogs, qualification data, and digital credentials. They do not automatically publish or certify metadata; institutions remain in control of review and approval.
 
-* **A running Chroma vector database** that stores the skill vectors.
-* **An embedding server** (e.g. a HuggingFace Inference endpoint) that provides the embedding model used to vectorize course descriptions and queries.
-* **An LLM API endpoint** for learning outcome extraction, keyword extraction and LLM validation. The endpoint and model are fully configurable via environment variables, so you can point the API at any OpenAI-compatible LLM service of your choice.
+## What it offers
 
-The skill data used to populate the Chroma database is provided as JSONL files in the `data/import` directory. These files contain the documents, their metadata and (optionally) precomputed embeddings. On first startup, the API reads these files and populates the configured Chroma collection automatically.
+- Suggest learning outcomes from course or learning-opportunity information, or work with outcomes already provided.
+- Connect each learning outcome separately to relevant skills in established frameworks.
+- Prepare outcome titles and summaries in multiple languages while preserving provided information.
+- Support metadata workflows for learning opportunities, qualifications, and digital educational credentials.
 
-## Features
+The API supports ESCO, DigCompESCO, GRETA, DigComp, DigCompEdu, and FutureSkills2030. The downloadable release of indexed skill data includes ESCO v1.2.0, GRETA v2, DKZ, DigComp 2.2 (ESCO), and DigCompEdu.
 
-* Predict ESCOv1.2.0, GRETAv2, DKZ, DigComp 2.2 (ESCO) and DigCompEdu Skills based on course descriptions or learning outcomes.
-* Predict competency levels.
-* Create embeddings.
-* Provide validated training data.
+## How it works
 
-## Installation
+WISYKI-API uses course information and any supplied learning outcomes to suggest clear outcome statements. It searches for related skills separately for each outcome, preserving the connection between outcomes and the skills that may describe them. It can also provide a multilingual summary. Institutions can review the recommendations before adding them to catalogs or credential systems.
 
-To get the API up and running, follow these steps:
+The service uses FastAPI, PostgreSQL, Chroma, an embedding service, and an OpenAI-compatible LLM provider. The development setup includes local PostgreSQL, Chroma, and Hugging Face Text Embeddings Inference; the LLM provider is configured separately. Response statistics are optional, and background processing is available for longer requests.
 
-### Prerequisites
+For details on how recommendations relate to ELM/QualityLink, see [docs/metadata-workflow.md](./docs/metadata-workflow.md). For configuration, statistics, and background processing, see [docs/operations.md](./docs/operations.md).
 
-You will need to have Docker installed on your machine. If you don't have Docker installed, you can download it from [the official docker website](https://www.docker.com/products/docker-desktop).
+## Local development
 
-You will also need access to the following external services:
+The repository's Docker Compose setup is intended for local development, not production deployment. You need Docker Compose v2, access to an OpenAI-compatible LLM provider, and the skill data distributed through the project's GitHub releases. Compose starts the local PostgreSQL, Chroma, and embedding services.
 
-* A running **Chroma** vector database.
-* An **embedding server** (e.g. a HuggingFace Inference endpoint) providing the embedding model.
-* An **LLM API endpoint** (OpenAI-compatible) for learning outcome extraction, keyword extraction and validation.
+1. Clone this repository and enter its directory.
+2. Download a skill-data archive from the [GitHub releases](https://github.com/ild-thl/wisyki-api/releases) and extract its indexed skill documents into `data/import`.
+3. Create the local environment file from the template and configure the LLM provider and local service settings:
 
-### Environment Variables
+   ```bash
+   cp .env.example .env
+   ```
 
-The following environment variables are required:
+4. Build and start the development services:
 
-* `POSTGRES_PASSWORD`: The password for the PostgreSQL database.
-* `PGADMIN_EMAIL`: The email for PgAdmin.
-* `PGADMIN_PASSWORD`: The password for PgAdmin.
-* `HOST_PORT`: The host port for the API.
-* `POSTGRES_PORT`: The port for the PostgreSQL database.
-* `PGADMIN_PORT`: The port for PgAdmin.
-* `CHROMA_PORT`: The port for the Chroma server.
-* `HF_TEXT_INF_PORT`: The port for the text-embeddings-inference service.
-* `ROOT_PATH`: This variable is used when the API is running behind a proxy. If the API is served under a subpath, such as `/api/v1`, then `ROOT_PATH` should be set to that subpath (`/api/v1` in this case). If the API is not behind a proxy or is served from the root path, this variable can be left empty.
+   ```bash
+   docker compose up --build -d
+   ```
 
-The following environment variables configure the external services and can be set freely to match your setup:
-
-* `LLM_API_URL`: The base URL of your OpenAI-compatible LLM API endpoint.
-* `LLM_MODEL`: The name of the LLM model to use.
-* `LLM_API_KEY`: The API key for the LLM endpoint.
-* `CHROMA_HOST`: The host of the Chroma server.
-* `CHROMA_PORT`: The port of the Chroma server.
-* `CHROMA_COLLECTION`: The name of the Chroma collection to use.
-* `CHROMA_DATABASE`: The Chroma database to use (defaults to `wisyki`).
-* `CHROMA_TENANT`: The Chroma tenant (defaults to `default_tenant`).
-* `CHROMA_SERVER_AUTHN_CREDENTIALS`: The authentication token for the Chroma server.
-* `CHROMA_SERVER_AUTHN_PROVIDER`: The authentication provider for the Chroma server.
-* `HF_EMBEDDING_HOST`: The URL of the embedding server (e.g. a HuggingFace Inference endpoint).
-* `HF_EMBEDDING_API_KEY`: The API key for the embedding server.
-* `HF_EMBEDDING_MODEL`: The model served by the local text-embeddings-inference service.
-
-The provided `docker-compose.yml` starts all required services itself, including the Chroma vector database and the text-embeddings-inference embedding server. If you already run these services elsewhere, you can point the API at them via the environment variables above instead.
-
-### Steps
-
-1. Clone the repository:
-
-    ```bash
-    git clone <repository-url>
-    ```
-
-2. Navigate to the project directory:
-
-    ```bash
-    cd wisyki-api
-    ```
-
-3. Download the skill import data:
-
-   Download the skill import data archive from the [release page](https://github.com/ild-thl/wisyki-api/releases).
-
-4. Extract the import data to the correct location:
-
-   Unzip the downloaded file into a directory at `data/import`. The JSONL files in this directory are read on first startup to populate the configured Chroma collection.
-
-5. Copy and setup environment variables:
-
-    ```bash
-    cp .env.example .env
-    ```
-
-   Then edit `.env` and set the values for your external services (LLM endpoint, Chroma server and embedding server).
-
-6. Run the Docker compose command:
-
-    ```bash
-    docker-compose up -d
-    ```
-
-    or run for local development
-
-    ```bash
-    docker compose -f docker-compose.dev.yml up -d
-    ```
-
-On first startup, the API connects to the configured Chroma server. If the collection is empty, it populates it from the JSONL files in `data/import`.
-
-## Docker Image Build
-
-The official Docker image for the WISYKI-API is available for amd64 and arm64 architectures. To build the Docker image for both architectures, Docker Buildx was used.
-
-Creating a new builder instance and setting it as the active one is necessary for building multi-platform images.
+The API mounts `src/` from the host and reloads when source files change. Check service status and follow API logs with:
 
 ```bash
-docker buildx create --name mybuilder --use
-docker buildx inspect --bootstrap
+docker compose ps
+docker compose logs -f wisyki-api
 ```
 
-After setting up the builder, the Docker image can be built and pushed to the Docker Hub repository using the following command:
+By default, the interactive API documentation is available at `http://localhost:7680/docs`; change `HOST_PORT` in `.env` to use another host port. Use `docker compose down` to stop the stack. Named volumes retain local database, Chroma, and embedding data.
+
+The [hosted API documentation](https://wisyki-api.dev.dlc.sh/competence-analyser/docs) is the source of truth for endpoint request and response schemas.
+
+## Tests
+
+The unit and HTTP contract tests use fake providers and an isolated in-memory Chroma collection:
 
 ```bash
-docker buildx build --platform linux/amd64,linux/arm64 -t pascalhuerten/comp-ai-api:latest --push .
+docker compose run --rm --no-deps \
+  wisyki-api python -m unittest discover -s /code/tests -v
 ```
-
-This command builds the Docker image for both `linux/amd64` and `linux/arm64` platforms and pushes it to the Docker Hub repository `pascalhuerten/comp-ai-api`.
-Make sure to replace `pascalhuerten/comp-ai-api` with your own Docker Hub repository name if you want to push it to your own repository.
-
-## API Documentation
-
-For more details on how to use the API, please refer to the [API Documentation](https://lab.dlc.sh/competence-analyser/docs).
 
 ## Acknowledgements
 
-This service uses the ESCO classification of the European Commission.
-
-This API was developed as part of the project WISY@KI by the Institut für interakive Systeme, Technical University of Applied Sciences Lübeck and was funded by the Federal Ministry of Education and Research.
+This service uses the ESCO classification of the European Commission. WISYKI-API was developed as part of the WISY@KI project by the Institut für interaktive Systeme at the Technical University of Applied Sciences Lübeck and funded by the Federal Ministry of Education and Research.
 
 <div style="display: flex; align-items: center; gap: 35px;">
     <img src="static/bmbf_logo.jpg" alt="BMBF Logo" style="width: 150px; height: auto;">
@@ -144,11 +70,11 @@ This API was developed as part of the project WISY@KI by the Institut für inter
 
 ## Support
 
-If you encounter any issues or require further assistance, feel free to raise an issue in this repository.
+For issues or assistance, please raise an issue in this repository.
 
 ## Contributing
 
-We welcome contributions from the community.
+Contributions are welcome.
 
 ## License
 

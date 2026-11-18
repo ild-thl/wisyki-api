@@ -779,21 +779,7 @@ class SkillRetriever:
             Prediction: The created prediction object.
         """
 
-        # Create prediction object based on the skill taxonomy.
-        if skill[0].metadata["taxonomy"] == "ESCO":
-            return Prediction.from_esco(skill)
-        elif skill[0].metadata["taxonomy"] == "DigCompESCO":
-            return Prediction.from_esco(skill)
-        elif skill[0].metadata["taxonomy"] == "GRETA":
-            return Prediction.from_greta(skill)
-        elif skill[0].metadata["taxonomy"] == "DigCompEdu":
-            return Prediction.from_digcompedu(skill)
-        elif skill[0].metadata["taxonomy"] == "DigComp":
-            return Prediction.from_digcomp(skill)
-        elif skill[0].metadata["taxonomy"] == "FutureSkills2030":
-            return Prediction.from_futureskills2030(skill)
-        else:
-            return Prediction.from_other(skill)
+        return Prediction.from_document(skill)
 
     def applyDynamicThreshold(self, predictions: list) -> list:
         """

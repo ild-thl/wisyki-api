@@ -12,14 +12,16 @@ def get_default_llm(
 
     Args:
         temperature (float): The temperature parameter for controlling the randomness of the model's output. Default is 0.1.
-        use_most_competent_llm (bool): Whether to use the most competent LLM model. Default is False.
+        use_most_competent_llm (bool): Prefer LLM_MODEL_COMPLEX when configured.
 
     Returns:
         Tuple[BaseChatModel, str]: A tuple containing the THL chat model and the model name.
 
     """
     api_base = os.getenv("LLM_API_URL")
-    model_name = os.getenv("LLM_MODEL")
+    model_name = (
+        os.getenv("LLM_MODEL_COMPLEX") if use_most_competent_llm else None
+    ) or os.getenv("LLM_MODEL")
     api_key = os.getenv("LLM_API_KEY")
     return (
         ChatOpenAI(
