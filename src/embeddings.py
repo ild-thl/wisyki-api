@@ -3,6 +3,23 @@ Embeddings module for HuggingFace Inference API integration.
 
 This module provides a unified embedding wrapper that's used throughout the application
 for vectorizing documents and queries consistently.
+
+Prefix handling
+---------------
+Some embedding models (notably the e5 family) are trained with instruction prefixes:
+queries must be prefixed with ``query: `` and documents with ``passage: `` for
+retrieval to work correctly. These prefixes are a property of the *model*, not of
+individual callers, so they are configured once alongside the model and applied at
+the root embedding calls only. No other part of the codebase should append prefixes
+itself; doing so would double-prefix and corrupt the vectors.
+
+The prefixes are read from environment variables so that a different model (or a
+model without prefix requirements) can be configured without code changes:
+
+- ``HF_EMBEDDING_QUERY_PREFIX`` (default: ``query: ``)
+- ``HF_EMBEDDING_PASSAGE_PREFIX`` (default: ``passage: ``)
+
+Set either to an empty string to disable prefixing for that call type.
 """
 
 import os
@@ -14,19 +31,29 @@ from langchain_core.embeddings import Embeddings
 class HuggingFaceInferenceEmbeddings(Embeddings):
     """Wrapper for HuggingFace Inference API embeddings"""
 
-    def __init__(self, api_key: str, model: str):
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        query_prefix: str = "query: ",
+        passage_prefix: str = "passage: ",
+    ):
         """
         Initialize the embeddings.
 
         Args:
             api_key: HuggingFace API key
             model: The inference endpoint URL or model name
+            query_prefix: Prefix applied to every query before embedding.
+            passage_prefix: Prefix applied to every document before embedding.
         """
         self.api_key = api_key
         self.model = model
+        self.query_prefix = query_prefix
+        self.passage_prefix = passage_prefix
 
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        """Embed search docs."""
+    def _post(self, texts: list[str]) -> list[list[float]]:
+        """POST texts to the inference endpoint and normalize the response."""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
         }
@@ -47,9 +74,23 @@ class HuggingFaceInferenceEmbeddings(Embeddings):
                 return [item["embedding"] for item in result]
         return result
 
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        """Embed search docs (passage prefix applied at the root call)."""
+        if self.passage_prefix:
+            texts = [f"{self.passage_prefix}{text}" for text in texts]
+        return self._post(texts)
+
     def embed_query(self, text: str) -> list[float]:
-        """Embed query text."""
-        return self.embed_documents([text])[0]
+        """Embed query text (query prefix applied at the root call)."""
+        if self.query_prefix:
+            text = f"{self.query_prefix}{text}"
+        return self._post([text])[0]
+
+    def embed_queries(self, texts: list[str]) -> list[list[float]]:
+        """Embed a batch of query texts (query prefix applied at the root call)."""
+        if self.query_prefix:
+            texts = [f"{self.query_prefix}{text}" for text in texts]
+        return self._post(texts)
 
 
 def load_embedding_function(
@@ -77,4 +118,9 @@ def load_embedding_function(
     if not api_key:
         raise ValueError("HF_EMBEDDING_API_KEY environment variable is not set")
 
-    return HuggingFaceInferenceEmbeddings(api_key=api_key, model=api_host)
+    return HuggingFaceInferenceEmbeddings(
+        api_key=api_key,
+        model=api_host,
+        query_prefix=os.getenv("HF_EMBEDDING_QUERY_PREFIX", "query: "),
+        passage_prefix=os.getenv("HF_EMBEDDING_PASSAGE_PREFIX", "passage: "),
+    )

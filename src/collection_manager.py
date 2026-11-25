@@ -10,7 +10,6 @@ Functional design with focused methods for each task.
 """
 
 import json
-import uuid
 import gc
 from pathlib import Path
 from typing import Tuple, Generator, List, Dict, Optional
@@ -60,6 +59,10 @@ def _filter_valid_docs(
             skipped += 1
             continue
 
+        if (item.get("metadata") or {}).get("embedding") is False:
+            skipped += 1
+            continue
+
         doc_text = item.get("document", "").strip()
         if not doc_text:
             skipped += 1
@@ -80,7 +83,7 @@ def _prepare_batch_for_upsert(
     Extract documents, metadata, ids, and embeddings from batch.
     Returns: (ids, documents, metadatas, embeddings)
     """
-    ids = [f"{file_stem}_{line_num}_{uuid.uuid4().hex[:8]}" for line_num, _ in docs]
+    ids = [item.get("id") or f"{file_stem}_{line_num}" for line_num, item in docs]
     documents = [item.get("document", "") for _, item in docs]
     metadatas = [item.get("metadata", {}) for _, item in docs]
     embeddings = [item.get("embedding") for _, item in docs]
@@ -185,7 +188,7 @@ def _save_embeddings_batch_to_jsonl(
             output_file.unlink()
 
 
-def _populate_collection_from_import(
+def populate_collection_from_import(
     client,
     collection,
     embedding_function,

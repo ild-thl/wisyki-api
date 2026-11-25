@@ -1,9 +1,10 @@
-from langchain_core.pydantic_v1 import BaseModel, Field
+from pydantic import BaseModel, Field
 from typing import Dict, List, Tuple, Optional, Any
 from .get_chat_llm import get_llm
-from langchain.prompts import PromptTemplate
-from langchain.output_parsers import PydanticOutputParser
+from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.prompts import PromptTemplate
 import os
+
 
 class LearningOutcomes(BaseModel):
     learning_outcomes: List[str] = Field(
@@ -11,17 +12,23 @@ class LearningOutcomes(BaseModel):
         description="The learning outcomes as knowledge and skills that participants will acquire by participating in the described learning opportunity.",
     )
 
+
 class Prerequisites(BaseModel):
     prerequisites: List[str] = Field(
         default=[],
         description="The prerequisites as in knowledge and skills that are required to participate in the described learning opportunity. Empty if not specified or if the learning opportunity is open to total beginners.",
     )
 
+
 class LearningOutcomesAndPrerequisites(LearningOutcomes, Prerequisites):
     pass
 
+
 async def extract_learning_opportunity(
-    doc: str, mistral_api_key: str = None, openai_api_key: str = None, targets: List[str] = None
+    doc: str,
+    mistral_api_key: str = None,
+    openai_api_key: str = None,
+    targets: List[str] = None,
 ) -> Dict[str, Any]:
     """
     Extracts structured learning opportunity data from a given document.
@@ -43,7 +50,7 @@ async def extract_learning_opportunity(
         pydantic_object = Prerequisites
     else:
         raise ValueError("At least one target must be specified.")
-    
+
     # Initialize the output parser with the LearningOpportunity model.
     parser = PydanticOutputParser(pydantic_object=pydantic_object)
 

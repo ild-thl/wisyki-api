@@ -9,14 +9,12 @@ from pydantic import (
 )
 from pydantic.alias_generators import to_camel
 
-
-MetadataStage = Literal["extraction", "validation", "summary", "translation"]
-Title = Annotated[
-    str, StringConstraints(min_length=1, max_length=1000, pattern=r"\S")
+MetadataStage = Literal[
+    "extraction", "validation", "summary", "translation", "classification"
 ]
-Text = Annotated[
-    str, StringConstraints(min_length=1, max_length=4000, pattern=r"\S")
-]
+DEFAULT_MIN_SIMILARITY = 0.4
+Title = Annotated[str, StringConstraints(min_length=1, max_length=1000, pattern=r"\S")]
+Text = Annotated[str, StringConstraints(min_length=1, max_length=4000, pattern=r"\S")]
 Language = Annotated[
     str,
     StringConstraints(
@@ -44,9 +42,9 @@ LocalizedTitleMap = dict[Language, Title]
 
 
 class CourseInput(MetadataModel):
-    title: Optional[Title | LocalizedTitleMap] = Field(
+    title: Optional[Title] = Field(
         default=None,
-        description="Course title, optionally provided as a language-keyed map.",
+        description="Course title in sourceLanguage.",
     )
     short_description: Optional[
         Annotated[str, StringConstraints(min_length=1, max_length=4000, pattern=r"\S")]
@@ -57,12 +55,12 @@ class CourseInput(MetadataModel):
         default=None,
         description=(
             "Source text used to extract learning outcomes; required when outcomes "
-            "are not supplied and extraction is enabled."
+            "are not supplied in strict mode. Inferred mode can use an identified course title."
         ),
     )
-    learning_outcome_summary: Optional[LocalizedTextMap] = Field(
+    learning_outcome_summary: Optional[Text] = Field(
         default=None,
-        description="Existing learning outcome summary keyed by BCP 47 language tag.",
+        description="Course learning outcome summary in sourceLanguage.",
     )
     target_group: Optional[
         Annotated[str, StringConstraints(min_length=1, max_length=4000, pattern=r"\S")]
@@ -76,22 +74,47 @@ class CourseInput(MetadataModel):
 
 
 class OutcomeInput(MetadataModel):
-    title: LocalizedTitleMap = Field(
-        description=(
-            "Outcome title text keyed by BCP 47 language tag. Include sourceLanguage "
-            "when the title is written in that language."
-        )
-    )
+    title: Title = Field(description=("Authored outcome title in sourceLanguage."))
 
 
 class RecommendationOptions(MetadataModel):
     frameworks: list[Framework] = Field(
-        default_factory=lambda: ["ESCO"], min_length=1, max_length=6
+        default_factory=lambda: ["ESCO"],
+        min_length=1,
+        max_length=6,
+        description="Skill frameworks to search; defaults to ESCO.",
     )
-    max_skills_per_framework: int = Field(default=3, ge=1, le=10, strict=True)
-    extraction: Literal["auto", "disabled"] = "auto"
-    validation: Literal["llm", "semantic"] = "llm"
-    summary: Literal["auto", "disabled"] = "auto"
+    candidate_limit: int = Field(
+        default=12,
+        ge=1,
+        le=48,
+        strict=True,
+        description="Maximum retrieved candidates per outcome and framework, before similarity filtering. Does not cap accepted skills.",
+    )
+    extraction: Literal["auto", "disabled"] = Field(
+        default="auto",
+        description="Extract outcomes when none are supplied, or require supplied outcomes.",
+    )
+    validation: Literal["llm", "semantic"] = Field(
+        default="llm",
+        description="Use LLM validation or accept candidates by the similarity threshold only.",
+    )
+    evidence_mode: Literal["strict", "inferred"] = Field(
+        default="strict",
+        description="Strict requires clear source support. Inferred permits justified contextual assumptions during extraction and LLM validation, not claims of attainment or formal recognition.",
+    )
+    summary: Literal["auto", "disabled"] = Field(
+        default="auto",
+        description="Preserve a supplied summary or generate one when absent.",
+    )
+    classifications: list[Literal["EQF", "ISCED_F"]] = Field(
+        default_factory=list,
+        max_length=2,
+        description=(
+            "Optional course-level recommendations. EQF is a candidate level, not an "
+            "official qualification fact; ISCED_F uses the imported EU concept scheme."
+        ),
+    )
     stats: Literal["none", "summary", "full"] = Field(
         default="none",
         description=(
@@ -100,13 +123,13 @@ class RecommendationOptions(MetadataModel):
         ),
     )
     min_similarity: Optional[float] = Field(
-        default=None,
+        default=DEFAULT_MIN_SIMILARITY,
         ge=-1,
         le=1,
         strict=True,
         description=(
-            "Required in semantic mode. An explicit, caller-selected cosine similarity "
-            "floor, not a calibrated confidence or relevance guarantee."
+            "Cosine similarity floor applied before validation. Defaults to 0.4; "
+            "this is not a calibrated confidence or relevance guarantee."
         ),
     )
 
@@ -114,9 +137,17 @@ class RecommendationOptions(MetadataModel):
     def validate_options(self) -> "RecommendationOptions":
         if len(set(self.frameworks)) != len(self.frameworks):
             raise ValueError("Frameworks must be unique.")
-        if self.validation == "semantic" and self.min_similarity is None:
-            raise ValueError("Semantic validation requires an explicit minSimilarity.")
+        if len(set(self.classifications)) != len(self.classifications):
+            raise ValueError("Classifications must be unique.")
         return self
+
+    @property
+    def effective_min_similarity(self) -> float:
+        return (
+            self.min_similarity
+            if self.min_similarity is not None
+            else DEFAULT_MIN_SIMILARITY
+        )
 
 
 class ElmLoqMetadataRequest(MetadataModel):
@@ -148,10 +179,10 @@ class ElmLoqMetadataRequest(MetadataModel):
             "course information unless extraction is disabled."
         ),
     )
-    learning_outcome_summary: Optional[LocalizedTextMap] = Field(
+    learning_outcome_summary: Optional[Text] = Field(
         default=None,
         description=(
-            "Existing summary keyed by BCP 47 language tag. Preserved instead of "
+            "Existing summary in sourceLanguage. Preserved instead of "
             "generating a replacement."
         ),
     )
@@ -165,8 +196,16 @@ class ElmLoqMetadataRequest(MetadataModel):
         if not self.learning_outcome:
             if self.options.extraction == "disabled":
                 raise ValueError("Supplied learningOutcome values are required.")
-            if self.course is None or self.course.description is None:
-                raise ValueError("A course description or learningOutcome is required.")
+            if self.course is None or not (
+                self.course.description is not None
+                or (
+                    self.options.evidence_mode == "inferred"
+                    and self.course.title is not None
+                )
+            ):
+                raise ValueError(
+                    "A course description or learningOutcome is required; inferred mode also accepts a course title."
+                )
         if len(set(self.target_languages)) != len(self.target_languages):
             raise ValueError("Target languages must be unique.")
         return self
@@ -180,73 +219,69 @@ class ElmLoqMetadataRequest(MetadataModel):
         return self.source_language
 
 
-class Evidence(MetadataModel):
-    field: str = Field(min_length=1, max_length=150)
-    quote: str = Field(min_length=1, max_length=12000, pattern=r"\S")
-
-
 class ExtractedOutcome(MetadataModel):
     title: Title
-    evidence: list[Evidence] = Field(min_length=1, max_length=3)
+    reason: Optional[
+        Annotated[str, StringConstraints(min_length=1, max_length=240, pattern=r"\S")]
+    ] = None
 
 
 class ExtractionResult(MetadataModel):
     learning_outcome: list[ExtractedOutcome] = Field(max_length=20)
+    learning_outcome_summary: Optional[Text] = None
 
 
-class SkillDecision(MetadataModel):
-    outcome_id: str
-    candidate_id: str
-    decision: Literal["supported", "unsupported", "uncertain"]
-    reason: Optional[str] = Field(default=None, min_length=1, max_length=240, pattern=r"\S")
+class ProposedClassifications(MetadataModel):
+    eqf_level: int | None = Field(default=None, ge=1, le=8)
+    isced_f_code: str | None = Field(default=None, pattern=r"^\d{4}$")
+    eqf_reason: Optional[
+        Annotated[str, StringConstraints(min_length=1, max_length=1000, pattern=r"\S")]
+    ] = None
+    isced_f_reason: Optional[
+        Annotated[str, StringConstraints(min_length=1, max_length=1000, pattern=r"\S")]
+    ] = None
 
     @model_validator(mode="after")
-    def require_supported_reason(self) -> "SkillDecision":
-        if self.decision == "supported" and self.reason is None:
-            raise ValueError("A supported association requires a short evidence-based reason.")
+    def require_reasons_for_selected_classifications(self) -> "ProposedClassifications":
+        if self.eqf_level is not None and not self.eqf_reason:
+            raise ValueError("An EQF proposal requires a brief rationale.")
+        if self.isced_f_code is not None and not self.isced_f_reason:
+            raise ValueError("An ISCED-F proposal requires a brief rationale.")
         return self
 
 
+class ClassificationResult(MetadataModel):
+    eqf_level: int | None = Field(default=None, ge=1, le=8)
+    isced_f_code: str | None = Field(default=None, pattern=r"^\d{4}$")
+    eqf_reason: Optional[
+        Annotated[str, StringConstraints(min_length=1, max_length=1000, pattern=r"\S")]
+    ] = None
+    isced_f_reason: Optional[
+        Annotated[str, StringConstraints(min_length=1, max_length=1000, pattern=r"\S")]
+    ] = None
+
+    @model_validator(mode="after")
+    def require_reasons_for_selected_classifications(self) -> "ClassificationResult":
+        if self.eqf_level is not None and not self.eqf_reason:
+            raise ValueError("An EQF proposal requires a brief rationale.")
+        if self.isced_f_code is not None and not self.isced_f_reason:
+            raise ValueError("An ISCED-F proposal requires a brief rationale.")
+        return self
+
+
+class ClassifiedExtractionResult(ExtractionResult):
+    classifications: ProposedClassifications = Field(
+        default_factory=ProposedClassifications
+    )
+
+
 class SupportedSkillDecision(MetadataModel):
-    candidate_id: str
+    pair_id: str
     reason: str = Field(min_length=1, max_length=240, pattern=r"\S")
 
 
-class OutcomeSkillDecisions(MetadataModel):
-    outcome_id: str
-    supported: list[SupportedSkillDecision] = Field(max_length=48)
-    unsupported: list[str] = Field(max_length=48)
-    uncertain: list[str] = Field(max_length=48)
-
-
 class ValidationResult(MetadataModel):
-    outcomes: list[OutcomeSkillDecisions] = Field(max_length=20)
-
-    @property
-    def decisions(self) -> list[SkillDecision]:
-        decisions = []
-        for outcome in self.outcomes:
-            decisions.extend(
-                SkillDecision(
-                    outcome_id=outcome.outcome_id,
-                    candidate_id=item.candidate_id,
-                    decision="supported",
-                    reason=item.reason,
-                )
-                for item in outcome.supported
-            )
-            for decision, identifiers in (
-                ("unsupported", outcome.unsupported), ("uncertain", outcome.uncertain)
-            ):
-                decisions.extend(
-                    SkillDecision(
-                        outcome_id=outcome.outcome_id,
-                        candidate_id=identifier,
-                        decision=decision,
-                    )
-                    for identifier in identifiers
-                )
-        return decisions
+    supported: list[SupportedSkillDecision] = Field(max_length=96)
 
 
 class SummaryResult(MetadataModel):
@@ -261,6 +296,26 @@ class LocalizedOutcome(MetadataModel):
 class LocalizationResult(MetadataModel):
     learning_outcomes: list[LocalizedOutcome] = Field(max_length=20)
     learning_outcome_summary: Optional[LocalizedTextMap] = None
+
+
+class EQFLevelSuggestion(MetadataModel):
+    level: int = Field(ge=1, le=8)
+    uri: str
+    title: str
+    reason: str
+
+
+class ISCEDFSuggestion(MetadataModel):
+    uri: str
+    code: str = Field(pattern=r"^\d{4}$")
+    title: str
+    similarity_score: Optional[float] = Field(default=None, ge=-1, le=1)
+    reason: str
+
+
+class ClassificationSuggestions(MetadataModel):
+    eqf_level: Optional[EQFLevelSuggestion] = None
+    isced_f: list[ISCEDFSuggestion] = Field(default_factory=list, max_length=1)
 
 
 class SkillValidation(MetadataModel):
@@ -278,8 +333,12 @@ class RecommendedSkill(MetadataModel):
 
 class LearningOutcomeRecommendation(MetadataModel):
     title: LocalizedTitleMap
-    origin: Literal["provided", "extracted"]
-    evidence: list[Evidence]
+    reason: Optional[
+        Annotated[str, StringConstraints(min_length=1, max_length=240, pattern=r"\S")]
+    ] = Field(
+        default=None,
+        description="Extraction rationale; inferred mode identifies contextual assumptions. Not verified evidence.",
+    )
     related_esco_skill: list[RecommendedSkill] = Field(
         default_factory=list, alias="relatedESCOSkill"
     )
@@ -292,7 +351,6 @@ class RecommendedOutcome(LearningOutcomeRecommendation):
 
 class RecommendedSummary(MetadataModel):
     text: LocalizedTextMap
-    origin: Literal["provided", "generated"]
 
 
 class RecommendationWarning(MetadataModel):
@@ -351,12 +409,13 @@ class LlmUsage(MetadataModel):
 
 
 class RecommendationStats(MetadataModel):
-    pipeline_version: str = "elm-loq-metadata-v3"
+    pipeline_version: str = "elm-loq-metadata-v4"
     validation: Literal["llm", "semantic"]
     extraction: Literal["provided", "extracted"]
     summary: Literal["provided", "generated", "disabled", "no_outcomes"]
     score_metric: str = "cosine_similarity"
     candidates_retrieved: int = 0
+    classification_candidates_retrieved: int = 0
     candidates_validated: int = 0
     used_models: list[ModelUse] = Field(default_factory=list)
     stage_duration_ms: dict[str, int] = Field(default_factory=dict)
@@ -373,6 +432,7 @@ class RecommendationStatsSummary(MetadataModel):
     summary: Literal["provided", "generated", "disabled", "no_outcomes"]
     score_metric: str
     candidates_retrieved: int
+    classification_candidates_retrieved: int
     candidates_validated: int
     used_models: list[ModelUse]
     stage_duration_ms: dict[str, int]
@@ -383,7 +443,7 @@ class RecommendationStatsSummary(MetadataModel):
 
 class ElmLoqMetadataResponse(MetadataModel):
     learning_outcome: list[LearningOutcomeRecommendation]
-    learning_outcome_summary: Optional[LocalizedTextMap]
-    learning_outcome_summary_origin: Optional[Literal["provided", "generated"]] = None
+    learning_outcome_summary: Optional[LocalizedTextMap] = None
     warnings: list[RecommendationWarning]
+    classification_suggestions: Optional[ClassificationSuggestions] = None
     stats: Optional[RecommendationStats | RecommendationStatsSummary] = None

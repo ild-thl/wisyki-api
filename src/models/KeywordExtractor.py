@@ -1,23 +1,7 @@
 from .get_chat_llm import get_llm
 import re
 from typing import List
-from langchain.chains.question_answering import load_qa_chain
-from langchain_core.documents import Document
-
-
-class LLMKeywordExtractor:
-    def __init__(self, chain, prompt):
-        self.chain = chain
-        self.prompt = prompt
-
-    def extract_keywords(
-        self, document: str, candidate_keywords: List[str]
-    ) -> List[str]:
-        result = self.chain.run(
-            input_documents=[Document(page_content=document)],
-            question=self.prompt,
-        )
-        return clean_keyword_response(result)
+from langchain_core.prompts import PromptTemplate
 
 
 def clean_keyword_response(response: str) -> List[str]:
@@ -59,20 +43,17 @@ class KeywordExtractor:
         self.mistral_api_key = request.mistral_api_key
         self.used_models = []
         llm, self.model_name = get_llm(self.openai_api_key, self.mistral_api_key)
-        chain = load_qa_chain(llm, chain_type="stuff")
-        prompt = (
-            "Folgendes Dokument liegt vor:"
-            "[DOCUMENT]"
-            ""
-            "Mit diesen potenziellen Schlüsselwörtern:"
-            "[CANDIDATES]"
-            ""
-            "Auf Grundlage der obigen Informationen, optimieren Sie bitte die potenziellen Schlüsselwörter, um das Thema des Dokuments bestmöglich zu repräsentieren."
-            ""
-            "Bitte verwenden Sie das folgende Format und trennen Sie die Schlüsselwörter durch Kommas:"
+        prompt = PromptTemplate.from_template(
+            "Folgendes Dokument liegt vor:\n{document}\n\n"
+            "Mit diesen potenziellen Schlüsselwörtern:\n{candidates}\n\n"
+            "Auf Grundlage der obigen Informationen, optimieren Sie bitte die "
+            "potenziellen Schlüsselwörter, um das Thema des Dokuments bestmöglich "
+            "zu repräsentieren.\n\n"
+            "Bitte verwenden Sie das folgende Format und trennen Sie die "
+            "Schlüsselwörter durch Kommas:\n"
             "<keywords>keyword1, keyword2</keywords>"
         )
-        self.kw_model = LLMKeywordExtractor(chain=chain, prompt=prompt)
+        self.chain = prompt | llm
 
     def add_model_stats(self, model_name: str, reason: str):
         self.used_models.append({"model": model_name, "reason": reason})
@@ -94,6 +75,10 @@ class KeywordExtractor:
         )
 
         # Extract keywords.
-        keywords = self.kw_model.extract_keywords(document, candidate_keywords)
-
-        return keywords
+        result = self.chain.invoke(
+            {
+                "document": document,
+                "candidates": ", ".join(candidate_keywords),
+            }
+        )
+        return clean_keyword_response(result.content)

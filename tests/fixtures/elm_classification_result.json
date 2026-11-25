@@ -1,0 +1,31 @@
+{
+  "learningOutcome": [
+    {
+      "title": {
+        "de": "Kleine Python-Programme mit grundlegenden Programmierkonzepten schreiben."
+      },
+      "relatedESCOSkill": [],
+      "relatedSkill": []
+    }
+  ],
+  "learningOutcomeSummary": null,
+  "warnings": [],
+  "classificationSuggestions": {
+    "eqfLevel": {
+      "level": 4,
+      "uri": "http://data.europa.eu/snb/eqf/4",
+      "title": "Niveau 4",
+      "reason": "The course outcome requires applying basic programming concepts."
+    },
+    "iscedF": [
+      {
+        "uri": "http://data.europa.eu/snb/isced-f/0613",
+        "code": "0613",
+        "title": "Entwicklung und Analyse von Software und Anwendungen",
+        "similarityScore": 0.87,
+        "reason": "The retrieved field best matches the course's software development focus."
+      }
+    ]
+  },
+  "stats": null
+}

@@ -7,9 +7,9 @@ import time
 from collections import Counter
 from typing import List, Literal, Optional
 
-from langchain.output_parsers import PydanticOutputParser
-from langchain.prompts import PromptTemplate
 from langchain_core.language_models import BaseChatModel
+from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.prompts import PromptTemplate
 from pydantic import BaseModel, Field
 
 from .get_chat_llm import get_llm

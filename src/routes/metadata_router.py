@@ -5,7 +5,7 @@ from typing import Any, Literal, Optional
 from uuid import UUID, uuid4
 
 import psycopg2
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from ..models.elm_loq_metadata import (
@@ -71,18 +71,70 @@ def get_recommender(request: Request) -> ElmLoqMetadataRecommender:
     response_model=ElmLoqMetadataResponse | MetadataJobAccepted,
     summary="Recommend learning outcomes and their related framework skills",
     description=(
-        "Preserves supplied outcomes or extracts evidence-grounded outcomes, retrieves "
-        "skills separately for each outcome and framework, and preserves or generates "
-        "a learning outcome summary. Returns recommendations for human review, not a "
-        "complete QualityLink record or JSON-LD. relatedESCOSkill and relatedSkill map "
-        "to the corresponding ELM predicates; learningOutcomeSummary maps to elm:Note. "
-        "sourceLanguage is required; an empty targetLanguages list uses sourceLanguage "
-        "for generated text. Outcome objects do not include identifiers. Semantic mode "
-        "requires an explicit minSimilarity and is not LLM-validated. Statistics are "
-        "omitted by default and can be requested through options.stats. Send "
-        "Prefer: respond-async to receive a job handle instead of waiting for results."
+        "Recommends framework skills for supplied learning outcomes or outcomes "
+        "extracted from course information, and can generate summaries, translations "
+        "and course-level classifications. Results are proposals for human review, "
+        "not a complete QualityLink record or JSON-LD.\n\n"
+        "Request parameters:\n"
+        "- `sourceLanguage` (required): BCP 47 language tag for the source text.\n"
+        "- `course`: course title and context; `description` supplies extraction "
+        "evidence.\n"
+        "- `learningOutcome`: authored outcomes; when omitted, outcomes are extracted "
+        "unless extraction is disabled.\n"
+        "- `learningOutcomeSummary`: existing source-language summary to preserve.\n"
+        "- `targetLanguages`: languages for generated text; an empty list uses "
+        "`sourceLanguage` without a translation call.\n"
+        "- `purpose`: wording for a learning opportunity or credential; neither "
+        "asserts learner attainment.\n"
+        "- `options.frameworks`: skill frameworks to search. `candidateLimit` bounds "
+        "retrieval per outcome and framework; accepted results are not capped.\n"
+        "- `options.extraction`, `validation`, `evidenceMode` and `summary`: control "
+        "extraction, skill validation, evidence strictness and summary generation. "
+        "Semantic validation does not use an LLM.\n"
+        "- `options.minSimilarity`: cosine-similarity floor before validation "
+        "(default `0.4`); not a confidence guarantee.\n"
+        "- `options.classifications`: optional course-level `EQF` and/or `ISCED_F` "
+        "recommendations. EQF is not an official qualification fact.\n"
+        "- `options.stats`: `none` (default), `summary` or `full` usage statistics.\n\n"
+        "`relatedESCOSkill` and `relatedSkill` map to ELM skill predicates; "
+        "`learningOutcomeSummary` maps to `elm:Note`. Outcome objects contain no "
+        "identifiers, origin or evidence quotes. LLM validation uses full course "
+        "context and returns reasons only for accepted links. Send `Prefer: "
+        "respond-async` to receive a job handle instead of waiting for results."
     ),
     responses={
+        200: {
+            "description": "Recommendations completed.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "learningOutcome": [
+                            {
+                                "title": {"en": "Explain basic first aid procedures."},
+                                "reason": None,
+                                "relatedESCOSkill": [
+                                    {
+                                        "uri": "http://data.europa.eu/esco/skill/example",
+                                        "title": "Provide first aid",
+                                        "framework": "ESCO",
+                                        "similarityScore": 0.82,
+                                        "validation": {
+                                            "method": "semantic",
+                                            "reason": "The skill describes the same practical capability.",
+                                        },
+                                    }
+                                ],
+                                "relatedSkill": [],
+                            }
+                        ],
+                        "learningOutcomeSummary": None,
+                        "warnings": [],
+                        "classificationSuggestions": None,
+                        "stats": None,
+                    }
+                }
+            },
+        },
         202: {
             "model": MetadataJobAccepted,
             "description": "Recommendation accepted for background processing.",
@@ -94,9 +146,45 @@ def get_recommender(request: Request) -> ElmLoqMetadataRecommender:
     },
 )
 async def recommend_elm_loq_metadata(
-    request: ElmLoqMetadataRequest,
     response: Response,
     http_request: Request,
+    request: ElmLoqMetadataRequest = Body(
+        ...,
+        openapi_examples={
+            "providedOutcomes": {
+                "summary": "Recommend skills for supplied outcomes",
+                "value": {
+                    "sourceLanguage": "en",
+                    "learningOutcome": [
+                        {"title": "Explain basic first aid procedures."}
+                    ],
+                    "options": {
+                        "frameworks": ["ESCO"],
+                        "validation": "semantic",
+                        "summary": "disabled",
+                    },
+                },
+            },
+            "extractFromCourse": {
+                "summary": "Extract outcomes and suggest classifications",
+                "value": {
+                    "course": {
+                        "title": "First Aid Basics",
+                        "description": (
+                            "Participants learn to assess common emergencies, "
+                            "provide basic first aid and contact emergency services."
+                        ),
+                    },
+                    "sourceLanguage": "en",
+                    "targetLanguages": ["de"],
+                    "options": {
+                        "frameworks": ["ESCO", "DigComp"],
+                        "classifications": ["EQF", "ISCED_F"],
+                    },
+                },
+            },
+        },
+    ),
     recommender: ElmLoqMetadataRecommender = Depends(get_recommender),
     store: Optional[MetadataJobStore] = Depends(get_metadata_store),
 ) -> ElmLoqMetadataResponse | MetadataJobAccepted | JSONResponse:
@@ -108,7 +196,8 @@ async def recommend_elm_loq_metadata(
     }:
         if store is None:
             raise HTTPException(
-                status_code=503, detail="Background recommendation jobs are unavailable."
+                status_code=503,
+                detail="Background recommendation jobs are unavailable.",
             )
         try:
             job_id, token, _ = await asyncio.to_thread(
@@ -125,12 +214,8 @@ async def recommend_elm_loq_metadata(
             raise HTTPException(
                 status_code=503, detail="The recommendation job store is unavailable."
             ) from error
-        status_url = str(
-            http_request.url_for("get_metadata_job", job_id=job_id)
-        )
-        events_url = str(
-            http_request.url_for("stream_metadata_job", job_id=job_id)
-        )
+        status_url = str(http_request.url_for("get_metadata_job", job_id=job_id))
+        events_url = str(http_request.url_for("stream_metadata_job", job_id=job_id))
         response.status_code = 202
         response.headers["Location"] = status_url
         response.headers["X-Job-Token"] = token
@@ -144,11 +229,16 @@ async def recommend_elm_loq_metadata(
     sync_slot = False
     if store is not None:
         try:
-            sync_slot = await asyncio.to_thread(store.try_acquire_sync_slot, UUID(request_id))
+            sync_slot = await asyncio.to_thread(
+                store.try_acquire_sync_slot, UUID(request_id)
+            )
         except psycopg2.Error as error:
-            logger.error("Metadata admission coordinator failed: request_id=%s", request_id)
+            logger.error(
+                "Metadata admission coordinator failed: request_id=%s", request_id
+            )
             raise HTTPException(
-                status_code=503, detail="The recommendation admission coordinator is unavailable."
+                status_code=503,
+                detail="The recommendation admission coordinator is unavailable.",
             ) from error
         if not sync_slot:
             raise HTTPException(
@@ -199,7 +289,9 @@ async def recommend_elm_loq_metadata(
             try:
                 await asyncio.to_thread(store.release_sync_slot, UUID(request_id))
             except psycopg2.Error:
-                logger.error("Metadata admission release failed: request_id=%s", request_id)
+                logger.error(
+                    "Metadata admission release failed: request_id=%s", request_id
+                )
 
 
 def require_job_credentials(

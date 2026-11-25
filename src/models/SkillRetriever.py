@@ -8,7 +8,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics import silhouette_score
 from langchain_core.output_parsers import StrOutputParser
-from langchain.prompts import HumanMessagePromptTemplate, ChatPromptTemplate
+from langchain_core.prompts import HumanMessagePromptTemplate, ChatPromptTemplate
 from langchain_core.messages import SystemMessage
 import warnings
 from langchain_core import vectorstores

@@ -56,6 +56,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
+    user: "${WISYKI_UID:-1000}:${WISYKI_GID:-1000}"
     restart: unless-stopped
     env_file:
       - .env
@@ -74,6 +75,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
+    user: "${WISYKI_UID:-1000}:${WISYKI_GID:-1000}"
     restart: unless-stopped
     command: ["python", "-m", "src.metadata_worker"]
     env_file:

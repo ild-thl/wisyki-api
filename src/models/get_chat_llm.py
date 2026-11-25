@@ -1,7 +1,8 @@
 from typing import Tuple
-from langchain_openai import ChatOpenAI
 from langchain_core.language_models import BaseChatModel
 import os
+
+from .chat_model_factory import create_chat_model
 
 
 def get_default_llm(
@@ -24,13 +25,13 @@ def get_default_llm(
     ) or os.getenv("LLM_MODEL")
     api_key = os.getenv("LLM_API_KEY")
     return (
-        ChatOpenAI(
+        create_chat_model(
             model=model_name,
-            openai_api_base=api_base,
-            openai_api_key=api_key,
+            api_base=api_base,
+            api_key=api_key,
             temperature=temperature,
             max_tokens=max_tokens,  # Embedding models are trained on 512 sequence length, so we use this as a max output length for chat responses.
-            model_kwargs={"seed": 42},
+            seed=42,
         ),
         model_name,
     )
@@ -57,15 +58,17 @@ def get_mistral_model(
         Tuple[BaseChatModel, str]: A tuple containing the Mistral chat model instance and the model name.
 
     """
-    model_name = "mistral-large" if use_most_competent_llm else "mistral-small"
+    model_name = (
+        "deepseek-v4-1-flash-1017" if use_most_competent_llm else "mistral-small-latest"
+    )
     return (
-        ChatOpenAI(
-            openai_api_base=os.getenv("LLM_API_URL"),
+        create_chat_model(
+            api_base=os.getenv("LLM_API_URL") or "https://api.mistral.ai/v1",
             model=model_name,
-            mistral_api_key=mistral_api_key,
+            api_key=mistral_api_key,
             temperature=temperature,
-            random_seed=42,  # We use a seed of 42 to get reproducible results.
             max_tokens=max_tokens,
+            seed=42,
         ),
         model_name,
     )
@@ -90,12 +93,13 @@ def get_openai_model(
     """
     model_name = "gpt-5-mini" if use_most_competent_llm else "gpt-5-nano"
     return (
-        ChatOpenAI(
+        create_chat_model(
             model=model_name,
-            openai_api_key=openai_api_key,
+            api_base=None,
+            api_key=openai_api_key,
             temperature=temperature,
             max_tokens=max_tokens,
-            model_kwargs={"seed": 42},
+            seed=42,
         ),
         model_name,
     )

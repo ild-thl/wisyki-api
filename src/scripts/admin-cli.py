@@ -73,7 +73,7 @@ def reset_collection(force_recompute: bool = False) -> bool:
         return False
 
     try:
-        from src.collection_manager import _populate_collection_from_import
+        from src.collection_manager import populate_collection_from_import
         from src.embeddings import load_embedding_function
 
         client = _get_chroma_client()
@@ -87,7 +87,7 @@ def reset_collection(force_recompute: bool = False) -> bool:
             metadata={"hnsw:space": "cosine"},
         )
         embedding_function = load_embedding_function()
-        _populate_collection_from_import(
+        populate_collection_from_import(
             client,
             collection,
             embedding_function,

@@ -236,17 +236,25 @@ class GetCourseSkillsResponse(BaseModel):
 
 class GetEmbeddingsQueryRequest(BaseModel):
     query: str = Field(..., description="The query to embed.")
-    query_instruction: str = Field(
-        default="query: ",
-        description="Instruction to use for embedding query.",
+    query_instruction: Optional[str] = Field(
+        default=None,
+        deprecated=True,
+        description=(
+            "Deprecated compatibility field. Accepted but ignored; the configured "
+            "query prefix is applied automatically."
+        ),
     )
 
 
 class GetEmbeddingsDocumentsRequest(BaseModel):
     docs: List[str] = Field(..., description="The documents to embed.")
-    embed_instruction: str = Field(
-        default="passage: ",
-        description="Instruction to use for embedding documents.",
+    embed_instruction: Optional[str] = Field(
+        default=None,
+        deprecated=True,
+        description=(
+            "Deprecated compatibility field. Accepted but ignored; the configured "
+            "passage prefix is applied automatically."
+        ),
     )
 
 
@@ -320,9 +328,6 @@ async def chatsearch(
 
     if request.skill_taxonomy:
         request.taxonomies = [request.skill_taxonomy]
-
-    embedding_function.query_instruction = "query: "
-    embedding_function.embed_instruction = "passage: "
 
     # request = await extract_lo(request)
 
@@ -431,10 +436,6 @@ async def chatsearch_v2(
     skilldb=Depends(get_skilldb),
     domains=Depends(get_domains),
 ):
-    # Set the query and embed instructions for the embedding function
-    embedding_function.query_instruction = "query: "
-    embedding_function.embed_instruction = "passage: "
-
     # request = awaitextract_lo(request)
 
     # Create a SkillRetriever object
@@ -671,24 +672,25 @@ def get_course_comp_training_data(
 @router.post(
     "/embeddings/query",
     response_model=List[float],
-    description="Embed a query using the specified model.",
+    description="Embed a query using the configured model. Model-specific "
+    "instruction prefixes are applied automatically by the embedding layer.",
 )
 def embed_query(
     request: GetEmbeddingsQueryRequest,
     embedding_function=Depends(get_embedding_function),
 ):
-    embedding_function.query_instruction = request.query_instruction
     return embedding_function.embed_query(request.query)
 
 
 @router.post(
     "/embeddings/documents",
     response_model=List[List[float]],
-    description="Embed a list of documents using the specified model.",
+    description="Embed a list of documents using the configured model. "
+    "Model-specific instruction prefixes are applied automatically by the "
+    "embedding layer.",
 )
 def embed_documents(
     request: GetEmbeddingsDocumentsRequest,
     embedding_function=Depends(get_embedding_function),
 ):
-    embedding_function.embed_instruction = request.embed_instruction
     return embedding_function.embed_documents(request.docs)

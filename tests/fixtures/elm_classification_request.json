@@ -1,0 +1,21 @@
+{
+  "course": {
+    "title": "Python-Grundlagen",
+    "description": "Teilnehmende schreiben erste kleine Programme mit Python und üben grundlegende Programmierkonzepte."
+  },
+  "sourceLanguage": "de",
+  "learningOutcome": [
+    {
+      "title": "Kleine Python-Programme mit grundlegenden Programmierkonzepten schreiben."
+    }
+  ],
+  "options": {
+    "classifications": [
+      "EQF",
+      "ISCED_F"
+    ],
+    "candidateLimit": 24,
+    "summary": "disabled",
+    "stats": "full"
+  }
+}

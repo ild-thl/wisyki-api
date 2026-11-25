@@ -1,13 +1,13 @@
 import os
 import json
 from pathlib import Path
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 import chromadb
 from chromadb.api.models.Collection import Collection
 from chromadb.config import Settings
 from .models.DB import DB
 from .embeddings import HuggingFaceInferenceEmbeddings, load_embedding_function
-from .collection_manager import _populate_collection_from_import
+from .collection_manager import populate_collection_from_import
 
 
 def connect_skill_collection() -> tuple[chromadb.HttpClient, Collection]:
@@ -50,7 +50,7 @@ def load_skilldb(
         print(
             f"Collection '{chroma_collection}' is empty. Initializing from import directory..."
         )
-        _populate_collection_from_import(
+        populate_collection_from_import(
             client,
             collection,
             embedding,
@@ -58,6 +58,10 @@ def load_skilldb(
             force_recompute=False,
             save_embeddings=True,
         )
+
+    _ensure_isced_f_fields_of_education(
+        client, collection, embedding, chroma_collection
+    )
 
     # Test connection by retrieving document count and first document inclduing metadata
     doc_count = collection.count()
@@ -81,6 +85,65 @@ def load_skilldb(
         )
 
     return skilldb, collection
+
+
+def _ensure_isced_f_fields_of_education(
+    client,
+    collection: Collection,
+    embedding: HuggingFaceInferenceEmbeddings,
+    collection_name: str,
+    import_dir: Path = Path("data/import"),
+) -> None:
+    """Refresh ISCED-F vectors when the imported vocabulary version changes."""
+    vocabulary_file = import_dir / "isced-f-fields-of-education.jsonl"
+    if not vocabulary_file.is_file():
+        return
+
+    expected: dict[str, tuple[str, str | None]] = {}
+    with vocabulary_file.open("r", encoding="utf-8") as source:
+        for line in source:
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            metadata = record.get("metadata", {})
+            record_id = record.get("id")
+            version = metadata.get("source_version")
+            if (
+                metadata.get("taxonomy") == "ISCED_F"
+                and metadata.get("embedding") is not False
+                and isinstance(record_id, str)
+                and version
+                and isinstance(record.get("document"), str)
+                and record["document"].strip()
+            ):
+                expected[record_id] = (version, metadata.get("document_version"))
+
+    current = collection.get(where={"taxonomy": "ISCED_F"}, include=["metadatas"])
+    current_versions = {
+        record_id: (
+            metadata.get("source_version"),
+            metadata.get("document_version"),
+        )
+        for record_id, metadata in zip(
+            current.get("ids", []), current.get("metadatas", []) or []
+        )
+    }
+    changed = set(current_versions) != set(expected) or any(
+        current_versions.get(record_id) != version
+        for record_id, version in expected.items()
+    )
+
+    if changed:
+        collection.delete(where={"taxonomy": "ISCED_F"})
+        populate_collection_from_import(
+            client,
+            collection,
+            embedding,
+            collection_name,
+            force_recompute=False,
+            save_embeddings=False,
+            import_dir=import_dir,
+        )
 
 
 def load_domains():

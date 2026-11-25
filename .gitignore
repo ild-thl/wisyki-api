@@ -3,3 +3,5 @@ venv/
 .env*
 !.env.example
 data/import/
+data/evaluation/
+/data/llm-transcript.md
